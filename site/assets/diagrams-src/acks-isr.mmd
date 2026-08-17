@@ -1,0 +1,8 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#090a0c","primaryColor":"#1a1530","primaryTextColor":"#f4f4f5","primaryBorderColor":"#a78bfa","lineColor":"#c084fc","secondaryColor":"#101c2b","tertiaryColor":"#21172f"}}}%%
+flowchart LR
+    Producer["Producer"] -->|"Produce Request"| Leader["Broker 1<br/>Leader Replica"]
+    Leader -->|"acks 조건 충족 후 응답"| Producer
+    Followers["Broker 2·3<br/>Follower Replicas"] -->|"Replica Fetch"| Leader
+    Leader -->|"Record Batch"| Followers
+    Replicas["ISR<br/>Leader + 충분히 동기화된 Followers"] -.-> Leader
+    Replicas -.-> Followers

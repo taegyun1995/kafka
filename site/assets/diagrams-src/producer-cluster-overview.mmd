@@ -1,0 +1,57 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#090a0c","primaryColor":"#1a1530","primaryTextColor":"#f4f4f5","primaryBorderColor":"#a78bfa","lineColor":"#c084fc","secondaryColor":"#101c2b","tertiaryColor":"#21172f","clusterBkg":"#14161b","clusterBorder":"#4b386d"}}}%%
+flowchart LR
+    subgraph APP["애플리케이션"]
+        direction TB
+        Event["1  Event 생성"]
+        Input["2  전송 정보 구성<br/>Topic · Key · Value · Headers"]
+        Event --> Input
+    end
+
+    subgraph SPRING["Spring Kafka · Spring 사용 시"]
+        Template["3  KafkaTemplate<br/>편리한 send API"]
+    end
+
+    subgraph CLIENT["Kafka Producer Client"]
+        direction TB
+        Producer["4  KafkaProducer<br/>send(ProducerRecord)"]
+        Serialize["5  Serializer<br/>Key · Value → byte[]"]
+        Route["6  Partitioner<br/>Partition 선택"]
+        Batch["7  Record Accumulator<br/>Partition별 Batch"]
+        Sender["8  Sender<br/>Produce Request"]
+        Producer --> Serialize --> Route --> Batch --> Sender
+    end
+
+    subgraph CLUSTER["Kafka Cluster"]
+        direction TB
+        Metadata["Cluster Metadata<br/>Broker · Partition · Leader"]
+        subgraph B1["Broker 1"]
+            Leader["9  Topic A · Partition 1<br/>Leader Replica"]
+        end
+        subgraph B2["Broker 2"]
+            Follower1["Partition 1<br/>Follower Replica"]
+        end
+        subgraph B3["Broker 3"]
+            Follower2["Partition 1<br/>Follower Replica"]
+        end
+    end
+
+    Result["10  Future / Callback<br/>성공 또는 실패 처리"]
+
+    APP -->|"Spring 사용"| SPRING
+    SPRING -->|"ProducerRecord"| CLIENT
+    Sender -. "Metadata 요청" .-> Metadata
+    Sender == "Produce Request" ==> Leader
+    Leader <-->|"Replica Fetch · Record Batch"| Follower1
+    Leader <-->|"Replica Fetch · Record Batch"| Follower2
+    Leader == "acks 조건 충족 후 응답" ==> Result
+
+    classDef app fill:#14161b,stroke:#474d58,color:#f4f4f5,stroke-width:1px;
+    classDef spring fill:#101c2b,stroke:#67c7ff,color:#f4f4f5,stroke-width:1.5px,stroke-dasharray:5 4;
+    classDef producer fill:#1a1530,stroke:#a78bfa,color:#f4f4f5,stroke-width:1.5px;
+    classDef broker fill:#21172f,stroke:#c084fc,color:#f4f4f5,stroke-width:1.5px;
+    classDef meta fill:#101c2b,stroke:#67c7ff,color:#f4f4f5,stroke-width:1px;
+    class Event,Input,Result app;
+    class Template spring;
+    class Producer,Serialize,Route,Batch,Sender producer;
+    class Leader,Follower1,Follower2 broker;
+    class Metadata meta;

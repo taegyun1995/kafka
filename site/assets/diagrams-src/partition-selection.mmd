@@ -1,0 +1,8 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#090a0c","primaryColor":"#1a1530","primaryTextColor":"#f4f4f5","primaryBorderColor":"#a78bfa","lineColor":"#c084fc","secondaryColor":"#101c2b","tertiaryColor":"#21172f"}}}%%
+flowchart LR
+    Record["ProducerRecord"] --> Explicit{"Partition 지정?"}
+    Explicit -->|"예"| Selected["지정한 Partition"]
+    Explicit -->|"아니요"| HasKey{"Key 있음?"}
+    HasKey -->|"예"| KeyHash["Key 기반 계산"]
+    KeyHash --> KeyPartition["결정된 Partition"]
+    HasKey -->|"아니요"| Auto["Producer가 Partition 선택"]

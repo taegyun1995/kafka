@@ -1,0 +1,33 @@
+%%{init: {"theme":"base","themeVariables":{"background":"#090a0c","primaryColor":"#1a1530","primaryTextColor":"#f4f4f5","primaryBorderColor":"#a78bfa","lineColor":"#c084fc","secondaryColor":"#101c2b","tertiaryColor":"#21172f"}}}%%
+flowchart TB
+    subgraph APP["Application"]
+        direction LR
+        Service["Order Service"] --> Event["ORDER_CREATED<br/>Event"]
+        Event --> Publisher["Event Publisher · 중요 경계<br/>Topic · Key · Value · Headers"]
+    end
+
+    subgraph SPRING["Spring Kafka · Spring 사용 시"]
+        Template["KafkaTemplate<br/>send(topic, key, value) 또는 send(record)"]
+    end
+
+    subgraph CLIENT["Kafka Producer Client"]
+        direction LR
+        Producer["KafkaProducer<br/>send(ProducerRecord)"] --> Serializer["Serializer<br/>Key · Value → byte[]"]
+        Serializer --> Partitioner["Partitioner<br/>Partition 선택"]
+        Partitioner --> Batch["Record Batch"]
+        Batch --> Sender["Sender"]
+    end
+
+    subgraph CLUSTER["Kafka Cluster"]
+        direction LR
+        Broker["Leader Broker"] --> Log["Partition Replica Log"]
+    end
+
+    APP -->|"Spring 사용"| SPRING
+    SPRING -->|"ProducerRecord 전달"| CLIENT
+    CLIENT -->|"Produce Request"| CLUSTER
+
+    classDef publisher fill:#24163f,stroke:#c084fc,stroke-width:3px,color:#ffffff
+    classDef spring fill:#101c2b,stroke:#67c7ff,stroke-width:2px,stroke-dasharray:5 4,color:#ffffff
+    class Publisher publisher
+    class Template spring

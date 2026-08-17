@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 820" role="img" aria-labelledby="title desc">
+  <title id="title">8개 파티션을 12개로 늘렸을 때 같은 key가 다른 파티션으로 갈 수 있는 흐름</title>
+  <desc id="desc">해시값 13인 key K가 증설 전에는 13 나머지 8로 P5에, 증설 후에는 13 나머지 12로 P1에 기록되는 과정을 보여준다. 기존 P5 기록은 이동하지 않는다.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fcd76b"/>
+    </marker>
+    <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#7f8a99"/>
+    </marker>
+    <style>
+      text { font-family: Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif; }
+      .title { fill: #f8fafc; font-size: 24px; font-weight: 800; }
+      .subtitle { fill: #b4bcc8; font-size: 15px; }
+      .label { fill: #e3e7ed; font-size: 15px; font-weight: 700; }
+      .small { fill: #b4bcc8; font-size: 13px; }
+      .code { fill: #f1f5f9; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 17px; font-weight: 700; }
+      .partition { fill: #252c35; stroke: #4b5664; stroke-width: 1.5; }
+      .old-target { fill: #292344; stroke: #c4b5fd; stroke-width: 2.5; }
+      .new-target { fill: #19392f; stroke: #6ee7b7; stroke-width: 2.5; }
+      .event-old { fill: #211c38; stroke: #6b5aa7; stroke-width: 1.5; }
+      .event-new { fill: #19392f; stroke: #4da985; stroke-width: 1.5; }
+      .event-text { fill: #f8fafc; font-size: 14px; font-weight: 700; }
+      .warning { fill: #fda4af; font-size: 16px; font-weight: 800; }
+      .warning-small { fill: #fda4af; font-size: 13px; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="820" rx="18" fill="#0f1217"/>
+
+  <!-- Before -->
+  <rect x="30" y="28" width="520" height="470" rx="16" fill="#171b21" stroke="#6b5aa7" stroke-width="2"/>
+  <text x="58" y="70" class="title">증설 전 · 8개</text>
+  <text x="58" y="98" class="subtitle">P0 ~ P7 · hash(K) = 13</text>
+  <rect x="58" y="120" width="464" height="64" rx="10" fill="#0a0d12" stroke="#3a424d"/>
+  <text x="290" y="159" text-anchor="middle" class="code">13 % 8 = 5  →  P5</text>
+
+  <g transform="translate(58 214)">
+    <rect width="92" height="42" rx="8" class="partition"/><text x="46" y="27" text-anchor="middle" class="label">P0</text>
+    <rect x="104" width="92" height="42" rx="8" class="partition"/><text x="150" y="27" text-anchor="middle" class="label">P1</text>
+    <rect x="208" width="92" height="42" rx="8" class="partition"/><text x="254" y="27" text-anchor="middle" class="label">P2</text>
+    <rect x="312" width="92" height="42" rx="8" class="partition"/><text x="358" y="27" text-anchor="middle" class="label">P3</text>
+    <rect x="416" width="92" height="42" rx="8" class="partition"/><text x="462" y="27" text-anchor="middle" class="label">P4</text>
+    <rect y="58" width="92" height="42" rx="8" class="old-target"/><text x="46" y="85" text-anchor="middle" class="label">P5</text>
+    <rect x="104" y="58" width="92" height="42" rx="8" class="partition"/><text x="150" y="85" text-anchor="middle" class="label">P6</text>
+    <rect x="208" y="58" width="92" height="42" rx="8" class="partition"/><text x="254" y="85" text-anchor="middle" class="label">P7</text>
+  </g>
+
+  <text x="58" y="350" class="small">같은 K의 기존 이벤트</text>
+  <rect x="58" y="370" width="128" height="44" rx="8" class="event-old"/><text x="122" y="398" text-anchor="middle" class="event-text">K · 생성</text>
+  <line x1="186" y1="392" x2="210" y2="392" stroke="#fcd76b" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="218" y="370" width="128" height="44" rx="8" class="event-old"/><text x="282" y="398" text-anchor="middle" class="event-text">K · 결제</text>
+  <line x1="346" y1="392" x2="370" y2="392" stroke="#fcd76b" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="378" y="370" width="128" height="44" rx="8" class="event-old"/><text x="442" y="398" text-anchor="middle" class="event-text">K · 배송</text>
+  <line x1="506" y1="392" x2="510" y2="292" stroke="#c4b5fd" stroke-width="2" marker-end="url(#muted-arrow)"/>
+  <text x="58" y="458" class="small">P5 내부에서는 순서가 보장됨</text>
+
+  <!-- Expansion -->
+  <line x1="574" y1="120" x2="574" y2="500" stroke="#3a424d" stroke-width="2" stroke-dasharray="8 8"/>
+  <circle cx="600" cy="246" r="29" fill="#3a2f16" stroke="#fcd76b" stroke-width="2"/>
+  <text x="600" y="241" text-anchor="middle" class="code" font-size="15">+4</text>
+  <text x="600" y="260" text-anchor="middle" class="small">파티션</text>
+  <text x="600" y="322" text-anchor="middle" class="warning-small">기존 로그</text>
+  <text x="600" y="342" text-anchor="middle" class="warning-small">이동 없음</text>
+
+  <!-- After -->
+  <rect x="650" y="28" width="520" height="470" rx="16" fill="#171b21" stroke="#6ee7b7" stroke-width="2"/>
+  <text x="678" y="70" class="title">증설 후 · 12개</text>
+  <text x="678" y="98" class="subtitle">P0 ~ P11 · 기존 P5는 그대로</text>
+  <rect x="678" y="120" width="464" height="64" rx="10" fill="#0a0d12" stroke="#3a424d"/>
+  <text x="910" y="159" text-anchor="middle" class="code">13 % 12 = 1  →  P1</text>
+
+  <g transform="translate(678 214)">
+    <rect width="92" height="42" rx="8" class="partition"/><text x="46" y="27" text-anchor="middle" class="label">P0</text>
+    <rect x="104" width="92" height="42" rx="8" class="new-target"/><text x="150" y="27" text-anchor="middle" class="label">P1</text>
+    <rect x="208" width="92" height="42" rx="8" class="partition"/><text x="254" y="27" text-anchor="middle" class="label">P2</text>
+    <rect x="312" width="92" height="42" rx="8" class="partition"/><text x="358" y="27" text-anchor="middle" class="label">P3</text>
+    <rect x="416" width="92" height="42" rx="8" class="partition"/><text x="462" y="27" text-anchor="middle" class="label">P4</text>
+    <rect y="58" width="92" height="42" rx="8" class="old-target"/><text x="46" y="85" text-anchor="middle" class="label">P5</text>
+    <rect x="104" y="58" width="92" height="42" rx="8" class="partition"/><text x="150" y="85" text-anchor="middle" class="label">P6</text>
+    <rect x="208" y="58" width="92" height="42" rx="8" class="partition"/><text x="254" y="85" text-anchor="middle" class="label">P7</text>
+    <rect x="312" y="58" width="92" height="42" rx="8" class="partition"/><text x="358" y="85" text-anchor="middle" class="label">P8</text>
+    <rect x="416" y="58" width="92" height="42" rx="8" class="partition"/><text x="462" y="85" text-anchor="middle" class="label">P9</text>
+    <rect y="116" width="92" height="42" rx="8" class="partition"/><text x="46" y="143" text-anchor="middle" class="label">P10</text>
+    <rect x="104" y="116" width="92" height="42" rx="8" class="partition"/><text x="150" y="143" text-anchor="middle" class="label">P11</text>
+  </g>
+
+  <text x="678" y="408" class="small">증설 후 새로 들어오는 K 이벤트</text>
+  <rect x="678" y="428" width="128" height="44" rx="8" class="event-new"/><text x="742" y="456" text-anchor="middle" class="event-text">K · 취소</text>
+  <line x1="806" y1="450" x2="840" y2="450" stroke="#6ee7b7" stroke-width="2" marker-end="url(#muted-arrow)"/>
+  <text x="850" y="456" class="label">P1에 저장</text>
+
+  <!-- What is not guaranteed -->
+  <rect x="30" y="540" width="1140" height="240" rx="16" fill="#211a20" stroke="#fda4af" stroke-width="2"/>
+  <text x="60" y="582" class="warning">문제의 핵심: P5 ↔ P1 사이에는 순서가 없다</text>
+  <text x="60" y="612" class="subtitle">Kafka는 각 Partition 내부 순서만 보장한다.</text>
+
+  <rect x="60" y="648" width="330" height="74" rx="10" fill="#211c38" stroke="#6b5aa7"/>
+  <text x="82" y="677" class="label">Consumer A</text>
+  <text x="82" y="702" class="small">P5: 생성 → 결제 → 배송</text>
+  <rect x="810" y="648" width="330" height="74" rx="10" fill="#19392f" stroke="#4da985"/>
+  <text x="832" y="677" class="label">Consumer B</text>
+  <text x="832" y="702" class="small">P1: 취소</text>
+  <line x1="410" y1="685" x2="790" y2="685" stroke="#fda4af" stroke-width="2" stroke-dasharray="10 8"/>
+  <text x="600" y="675" text-anchor="middle" class="warning-small">P5의 배송과 P1의 취소 사이 순서 보장 없음</text>
+</svg>
