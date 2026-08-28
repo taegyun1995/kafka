@@ -8318,3 +8318,16 @@ h3,
     min-width: 0;
   }
 }
+
+/* OS에서 동작 줄이기를 켠 사용자에게는 크기가 변하는 전환만 제거합니다.
+   색·배경 전환은 Motion이 아니라 상태 표시이므로 그대로 둡니다. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .reading-progress span,
+  .toc a::before {
+    transition: none;
+  }
+}

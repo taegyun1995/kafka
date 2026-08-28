@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f1217">
+  <meta name="description" content="순정 예약 처리에 동시 요청을 밀어 넣어 처리량이 어디서 멈추고 지연이 어떻게 자라는지 실제 서버에서 재 본다">
+  <title>PopupPass 부하 관측 | Kafka Study Notes</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./assets/styles.css">
+  <link rel="stylesheet" href="./assets/architecture.css">
+  <link rel="stylesheet" href="./assets/guards.css">
+  <link rel="stylesheet" href="./assets/load.css">
+</head>
+<body class="architecture-mode">
+  <a class="skip-link" href="#main-content">본문으로 이동</a>
+
+  <header class="topbar">
+    <a class="brand" href="./index.html#top" aria-label="Kafka 학습 문서로 돌아가기">
+      <span class="brand-mark">K</span>
+      <span class="brand-name">Kafka Study Notes</span>
+    </a>
+    <div class="topbar-context">PROJECT · POPUPPASS</div>
+    <a class="architecture-back" href="./popup-pass-architecture.html">기초 아키텍처 보기</a>
+  </header>
+
+  <div class="page-shell">
+    <main id="main-content">
+      <header class="architecture-hero">
+        <p class="architecture-eyebrow">PopupPass / Load</p>
+        <h1>느려지는 지점을 찾는다</h1>
+        <p class="architecture-lead">지금까지 물은 것은 <strong>“답이 맞는가”</strong>였다. 초과 예약과 중복 예약은 DB 제약 한 줄로 고칠 수 있었다. 이 화면이 묻는 것은 다른 질문이다 — <strong>“제때 대답하는가”</strong>. 아무리 정확해도 커넥션 하나는 한 번에 한 건씩만 처리한다는 사실은 그대로 남는다.</p>
+        <div class="architecture-pills" aria-label="재는 것">
+          <span class="architecture-pill">처리량</span>
+          <span class="architecture-pill">응답 지연 분포</span>
+          <span class="architecture-pill">커넥션 풀 대기</span>
+        </div>
+        <p class="architecture-note">브라우저는 한 출처에 커넥션을 여섯 개까지만 연다. 그래서 <strong>동시 300건은 화면에서 만들 수 없고 서버 안에서 만든다.</strong> 버튼을 누르면 서버가 그만큼의 스레드를 세워 실제 예약 처리를 동시에 호출한다. 정원은 요청 수의 두 배로 잡고 사용자도 전원 다르게 두어 매진·중복 거절이 섞이지 않게 했다. 남는 변수는 시간뿐이다. 다만 <strong>코드는 순정 그대로라 자리 차감은 여전히 유실된다</strong> — 정원이 넉넉해 매진으로 드러나지 않을 뿐이고, 실행마다 몇 칸이 증발했는지는 아래 결과에 적힌다.</p>
+      </header>
+
+      <section class="architecture-section" id="connect">
+        <div class="architecture-section-heading">
+          <span>01</span>
+          <div>
+            <p class="architecture-section-label">Connect</p>
+            <h2>서버에 붙는다</h2>
+            <p>부하 창구도 <code>study</code> 프로필에서만 열린다. 평소 실행에는 없는 코드다.</p>
+          </div>
+        </div>
+
+        <div class="guard-connect">
+          <label for="base-url">서버 주소</label>
+          <input id="base-url" type="url" spellcheck="false" value="http://localhost:18090">
+          <button class="guard-button" id="connect-button" type="button">연결</button>
+          <p class="guard-status" id="status">
+            <code>docker compose up -d postgres</code> 로 DB를 띄우고,
+            <code>gradle bootRun --args='--spring.profiles.active=study'</code> 로 서버를 실행한 뒤 연결한다.
+          </p>
+        </div>
+      </section>
+
+      <section class="architecture-section" id="run">
+        <div class="architecture-section-heading">
+          <span>02</span>
+          <div>
+            <p class="architecture-section-label">Run</p>
+            <h2>한꺼번에 밀어 넣는다</h2>
+            <p>고르는 것은 동시 요청 수 하나다. 커넥션 풀을 사이에 두고 앞뒤를 번갈아 눌러 본다.</p>
+          </div>
+        </div>
+
+        <div class="load-panel">
+          <div class="load-row">
+            <span class="load-row-label">동시 요청</span>
+            <div class="load-presets" id="presets" aria-label="자주 쓰는 동시 요청 수"></div>
+          </div>
+          <div class="load-row">
+            <span class="load-row-label">직접</span>
+            <div class="load-inline">
+              <input id="concurrency" type="number" min="1" max="600" step="1" value="100" aria-label="동시 요청 수">
+              <span>건</span>
+              <button class="load-run" id="run-button" type="button" disabled>실행</button>
+              <span class="load-divider" aria-hidden="true"></span>
+              <label for="patience">기다려 줄 시간</label>
+              <input id="patience" type="number" min="10" max="30000" step="10" value="1000">
+              <span>ms</span>
+            </div>
+          </div>
+          <div class="load-actions">
+            <button class="load-primary" id="sweep-button" type="button" disabled>낮은 쪽부터 전부 훑기</button>
+            <button class="load-ghost" id="reset-button" type="button">표 비우기</button>
+          </div>
+          <div class="load-progress" id="progress" hidden><span></span></div>
+        </div>
+
+        <p class="architecture-note" id="pool-note">연결하면 이 서버의 커넥션 풀 크기가 여기에 표시된다.</p>
+      </section>
+
+      <section class="architecture-section" id="trend">
+        <div class="architecture-section-heading">
+          <span>03</span>
+          <div>
+            <p class="architecture-section-label">Trend</p>
+            <h2>한 줄로는 안 보이고, 쌓여야 보인다</h2>
+            <p>동시 요청 수를 올리며 처리량과 지연이 각각 어떻게 움직이는지 나란히 둔다.</p>
+          </div>
+        </div>
+
+        <div class="guard-legend">
+          <span class="is-ok">CALM · 아무도 기다리지 않았다</span>
+          <span class="is-partial">QUEUEING · 줄은 섰지만 참을 만했다</span>
+          <span class="is-broken">FAILING · 기다리다 떠났을 요청이 있다</span>
+        </div>
+
+        <div class="load-chart-wrap">
+          <div class="load-chart-legend">
+            <span class="is-throughput">처리량 (건/s)</span>
+            <span class="is-latency">p95 응답 지연</span>
+          </div>
+          <svg class="load-chart" id="chart" viewBox="0 0 640 250" role="img" hidden
+               aria-label="동시 요청 수에 따른 처리량과 p95 지연"></svg>
+          <p class="load-chart-empty" id="chart-empty">두 지점 이상 재면 여기에 선이 그려진다. 위의 <strong>낮은 쪽부터 전부 훑기</strong>를 누르면 한 번에 채워진다.</p>
+        </div>
+
+        <div class="load-trend-wrap">
+          <table class="load-trend" id="trend">
+            <caption>동시 요청 수별 처리량과 응답 지연</caption>
+            <thead>
+              <tr>
+                <th scope="col">동시 요청</th>
+                <th scope="col">처리량 (건/s)</th>
+                <th scope="col">p50</th>
+                <th scope="col">p95</th>
+                <th scope="col">가장 느린 응답</th>
+                <th scope="col">풀 앞 대기 최대</th>
+                <th scope="col">판정</th>
+              </tr>
+            </thead>
+            <tbody id="trend-body">
+              <tr class="load-trend-empty"><td colspan="7">위에서 한 번 실행하면 여기에 줄이 쌓인다.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="load-takeaway" id="takeaway" hidden></p>
+      </section>
+
+      <section class="architecture-section" id="result">
+        <div class="architecture-section-heading">
+          <span>04</span>
+          <div>
+            <p class="architecture-section-label">Last Run</p>
+            <h2>방금 무슨 일이 있었나</h2>
+            <p>판정과 설명은 미리 적어 둔 것이 아니라 방금 잰 숫자에서 만든다.</p>
+          </div>
+        </div>
+
+        <div class="guard-result" id="result-panel" aria-live="polite">
+          <p class="guard-result-empty">한 번 실행하면 결과가 여기에 나온다.</p>
+        </div>
+      </section>
+
+      <section class="architecture-section" id="compare">
+        <div class="architecture-section-heading">
+          <span>05</span>
+          <div>
+            <p class="architecture-section-label">Guarded vs Unguarded</p>
+            <h2>다 고치면 빨라지는가</h2>
+            <p>같은 부하를 보호 없는 코드와 다 켠 코드에 한 번씩 건다. 다른 것은 보호 장치뿐이다.</p>
+          </div>
+        </div>
+
+        <p class="architecture-note">앞의 초과 예약과 이중 예약은 <a href="./popup-pass-guards.html">보호 장치</a> 세 겹으로 막혔다. 그렇다면 <strong>그것들을 다 켜면 응답도 빨라지는가.</strong> 두 실행은 같은 DB, 같은 커넥션 풀, 같은 재는 방법을 쓴다. 경합을 눈에 보이게 벌리는 학습용 연출(<code>widenRaceWindow</code>)은 <strong>양쪽 모두 꺼 둔다</strong> — 켠 채로 재면 재는 것이 코드가 아니라 그 <code>sleep</code>이 된다.</p>
+
+        <div class="load-compare-run">
+          <button class="load-primary" id="compare-button" type="button" disabled>0단계와 3단계를 나란히 재기</button>
+          <p>위에서 고른 동시 요청 수를 그대로 쓴다. 두 번 실행하므로 그만큼 걸린다.</p>
+        </div>
+
+        <div class="load-compare" id="compare-panel" aria-live="polite">
+          <p class="load-compare-empty">눌러 보면 보호 장치가 <strong>무엇을 고치고 무엇을 못 고치는지</strong> 한 표에 나온다.</p>
+        </div>
+      </section>
+
+      <footer class="architecture-footer">
+        <a href="./index.html#overview">← Kafka 학습 문서로 돌아가기</a>
+        <span> · </span>
+        <a href="./popup-pass-plan.html">학습 기획</a>
+        <span> · </span>
+        <a href="./popup-pass-guards.html">보호 장치 실행</a>
+        <span> · </span>
+        <a href="./popup-pass-demo.html">한 건씩 눌러 보기</a>
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var STORAGE_KEY = 'popup-pass-study-base';
+      var DEFAULT_BASE = 'http://localhost:18090';
+
+      var baseInput = document.getElementById('base-url');
+      var connectButton = document.getElementById('connect-button');
+      var statusLine = document.getElementById('status');
+      var concurrencyInput = document.getElementById('concurrency');
+      var patienceInput = document.getElementById('patience');
+      var runButton = document.getElementById('run-button');
+      var sweepButton = document.getElementById('sweep-button');
+      var resetButton = document.getElementById('reset-button');
+      var presetsBox = document.getElementById('presets');
+      var progress = document.getElementById('progress');
+      var poolNote = document.getElementById('pool-note');
+      var chart = document.getElementById('chart');
+      var chartEmpty = document.getElementById('chart-empty');
+      var trendBody = document.getElementById('trend-body');
+      var takeaway = document.getElementById('takeaway');
+      var resultPanel = document.getElementById('result-panel');
+      var compareButton = document.getElementById('compare-button');
+      var comparePanel = document.getElementById('compare-panel');
+
+      var meta = null;
+      var runs = [];   // 동시 요청 수별 마지막 결과. 같은 값을 다시 재면 덮어쓴다.
+      var busy = false;
+
+      try {
+        var saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) { baseInput.value = saved; }
+      } catch (ignored) { /* 프라이빗 모드 등에서 막힐 수 있다 */ }
+
+      function baseUrl() {
+        return baseInput.value.trim().replace(/\/$/, '');
+      }
+
+      function setStatus(message, isError) {
+        statusLine.innerHTML = message;
+        statusLine.classList.toggle('error', Boolean(isError));
+      }
+
+      function ms(micros) {
+        var value = micros / 1000;
+        if (value < 10) { return value.toFixed(1) + 'ms'; }
+        return Math.round(value).toLocaleString() + 'ms';
+      }
+
+      function lock(on) {
+        busy = on;
+        progress.hidden = !on;
+        runButton.disabled = on || !meta;
+        sweepButton.disabled = on || !meta;
+        compareButton.disabled = on || !meta;
+        Array.prototype.forEach.call(presetsBox.children, function (button) {
+          button.disabled = on || !meta;
+        });
+      }
+
+      function presetButtonFor(concurrency) {
+        return Array.prototype.filter.call(presetsBox.children, function (button) {
+          return Number(button.dataset.concurrency) === concurrency;
+        })[0] || null;
+      }
+
+      /** 방금 어느 지점을 쟀는지 버튼에서도 보이게 한다. */
+      function markActive(concurrency) {
+        Array.prototype.forEach.call(presetsBox.children, function (button) {
+          button.classList.toggle('is-active', Number(button.dataset.concurrency) === concurrency);
+        });
+      }
+
+      function connect(allowFallback) {
+        var base = baseUrl();
+        connectButton.disabled = true;
+        setStatus('연결하는 중… (' + base + ')', false);
+        fetch(base + '/load')
+          .then(function (response) {
+            if (!response.ok) { throw new Error('HTTP ' + response.status); }
+            return response.json();
+          })
+          .then(function (data) {
+            meta = data;
+            try { localStorage.setItem(STORAGE_KEY, base); } catch (ignored) { /* 무시 */ }
+            buildPresets();
+            patienceInput.value = data.defaultClientPatienceMillis;
+            concurrencyInput.max = data.maxConcurrency;
+            lock(false);
+            setStatus('<code>' + base + '</code> 에 연결됐다. 동시 요청은 최대 ' +
+              data.maxConcurrency + '건까지 세울 수 있다.', false);
+            poolNote.innerHTML = '이 서버의 커넥션 풀은 <strong>' + data.maxPoolSize +
+              '개</strong>다. 동시 요청이 이 수를 넘는 순간부터 나머지는 풀 앞에서 자기 차례를 기다린다 — ' +
+              '그 대기 시간이 곧 응답 지연이 된다.';
+          })
+          .catch(function (error) {
+            // 저장해 둔 주소가 낡았을 수 있다. 기본 주소로 한 번 더 시도한다.
+            if (allowFallback !== false && base !== DEFAULT_BASE) {
+              baseInput.value = DEFAULT_BASE;
+              connectButton.disabled = false;
+              connect(false);
+              return;
+            }
+            meta = null;
+            lock(false);
+            setStatus(
+              '<code>' + base + '</code> 에 연결하지 못했다 (' + error.message + '). 서버를 ' +
+              '<code>gradle bootRun --args=\'--spring.profiles.active=study\'</code> 로 띄웠는지 확인한다. ' +
+              '페이지가 낡았을 수 있으니 <strong>강력 새로고침</strong>(⌘⇧R)도 한 번 해 본다.',
+              true);
+          })
+          .finally(function () {
+            connectButton.disabled = false;
+          });
+      }
+
+      function buildPresets() {
+        presetsBox.innerHTML = '';
+        meta.presets.forEach(function (value) {
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'load-preset';
+          button.dataset.concurrency = value;
+          button.innerHTML = '<b>' + value.toLocaleString() + '</b><span>건</span>';
+          button.addEventListener('click', function () {
+            concurrencyInput.value = value;
+            run(value, button);
+          });
+          presetsBox.appendChild(button);
+        });
+      }
+
+      function run(concurrency, button) {
+        if (busy || !meta) { return Promise.resolve(); }
+        var patience = Number(patienceInput.value) || meta.defaultClientPatienceMillis;
+        lock(true);
+        if (button) { button.classList.add('is-running'); }
+        setStatus('동시 ' + concurrency + '건을 밀어 넣는 중…', false);
+
+        return fetch(baseUrl() + '/load/runs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ concurrency: concurrency, clientPatienceMillis: patience })
+        })
+          .then(function (response) {
+            if (!response.ok) { throw new Error('HTTP ' + response.status); }
+            return response.json();
+          })
+          .then(function (result) {
+            record(result);
+            markActive(result.concurrency);
+            renderTrend();
+            renderResult(result);
+            setStatus('동시 ' + concurrency + '건 완료 — ' + result.headline, false);
+          })
+          .catch(function (error) {
+            setStatus('실행하지 못했다 (' + error.message + ').', true);
+          })
+          .finally(function () {
+            if (button) { button.classList.remove('is-running'); }
+            lock(false);
+          });
+      }
+
+      /** 낮은 쪽부터 차례로 올린다. 한 번에 하나씩 해야 서로 방해하지 않는다. */
+      function sweep() {
+        if (busy || !meta) { return; }
+        var queue = meta.presets.slice();
+        (function next() {
+          if (!queue.length) { return; }
+          var value = queue.shift();
+          run(value, presetButtonFor(value)).then(next);
+        })();
+      }
+
+      function record(result) {
+        result.receivedAt = Date.now();
+        runs = runs.filter(function (item) { return item.concurrency !== result.concurrency; });
+        runs.push(result);
+        runs.sort(function (a, b) { return a.concurrency - b.concurrency; });
+      }
+
+      function bar(className, ratio) {
+        var width = Math.max(2, Math.round(Math.min(1, ratio) * 100));
+        return '<span class="load-bar ' + className + '"><span style="width:' + width + '%"></span></span>';
+      }
+
+      function verdictBadge(verdict) {
+        var label = { CALM: 'CALM', QUEUEING: 'QUEUEING', FAILING: 'FAILING' }[verdict] || verdict;
+        return '<span class="load-verdict is-' + verdict.toLowerCase() + '">' + label + '</span>';
+      }
+
+      function renderTrend() {
+        if (!runs.length) {
+          trendBody.innerHTML = '<tr class="load-trend-empty"><td colspan="7">위에서 한 번 실행하면 여기에 줄이 쌓인다.</td></tr>';
+          takeaway.hidden = true;
+          renderChart();
+          return;
+        }
+
+        var maxThroughput = Math.max.apply(null, runs.map(function (r) { return r.throughputPerSecond; }));
+        var maxLatency = Math.max.apply(null, runs.map(function (r) { return r.latency.p95Micros; }));
+        var latest = runs.reduce(function (a, b) { return a.receivedAt > b.receivedAt ? a : b; }, runs[0]);
+
+        trendBody.innerHTML = runs.map(function (r) {
+          return '<tr' + (r === latest ? ' class="is-latest"' : '') + '>' +
+            '<td>' + r.concurrency.toLocaleString() + '건</td>' +
+            '<td><span class="load-cell">' + Math.round(r.throughputPerSecond).toLocaleString() +
+              bar('throughput', r.throughputPerSecond / maxThroughput) + '</span></td>' +
+            '<td>' + ms(r.latency.p50Micros) + '</td>' +
+            '<td><span class="load-cell">' + ms(r.latency.p95Micros) +
+              bar('latency', r.latency.p95Micros / maxLatency) + '</span></td>' +
+            '<td>' + ms(r.latency.maxMicros) + '</td>' +
+            '<td>' + r.pool.peakAwaiting.toLocaleString() + '건</td>' +
+            '<td>' + verdictBadge(r.verdict) + '</td>' +
+            '</tr>';
+        }).join('');
+
+        renderChart();
+        renderTakeaway();
+      }
+
+
+      /**
+       * 가로축은 동시 요청 수(로그), 세로축은 둘이다 — 왼쪽이 처리량, 오른쪽이 p95 지연.
+       * 축을 나눈 이유는 단위가 다르기 때문이고, 보려는 것은 값 자체가 아니라 두 선이 갈라지는 모양이다.
+       */
+      function renderChart() {
+        if (runs.length < 2) {
+          chart.hidden = true;
+          chartEmpty.hidden = false;
+          return;
+        }
+        chart.hidden = false;
+        chartEmpty.hidden = true;
+
+        var W = 640, H = 250, L = 12, R = 12, T = 18, B = 34;
+        var xs = runs.map(function (r) { return r.concurrency; });
+        var minX = Math.min.apply(null, xs);
+        var maxX = Math.max.apply(null, xs);
+        var maxThroughput = Math.max.apply(null, runs.map(function (r) { return r.throughputPerSecond; })) * 1.12;
+        var maxLatency = Math.max.apply(null, runs.map(function (r) { return r.latency.p95Micros; })) * 1.12;
+
+        function px(value) {
+          if (maxX === minX) { return (L + W - R) / 2; }
+          return L + (Math.log(value) - Math.log(minX)) / (Math.log(maxX) - Math.log(minX)) * (W - L - R);
+        }
+        function py(value, max) {
+          return T + (1 - value / max) * (H - T - B);
+        }
+
+        var parts = [];
+
+        // 가로 보조선. 눈금 숫자는 범례가 대신하므로 선만 옅게 깐다.
+        for (var i = 0; i <= 3; i++) {
+          var y = T + (H - T - B) * i / 3;
+          parts.push('<line x1="' + L + '" y1="' + y + '" x2="' + (W - R) + '" y2="' + y +
+            '" stroke="currentColor" stroke-opacity="0.12" />');
+        }
+
+        parts.push(line(runs, function (r) { return py(r.throughputPerSecond, maxThroughput); }, 'var(--consumer)'));
+        parts.push(line(runs, function (r) { return py(r.latency.p95Micros, maxLatency); }, 'var(--danger)'));
+
+        runs.forEach(function (r) {
+          var x = px(r.concurrency);
+          parts.push(dot(x, py(r.throughputPerSecond, maxThroughput), 'var(--consumer)'));
+          parts.push(dot(x, py(r.latency.p95Micros, maxLatency), 'var(--danger)'));
+          parts.push('<text x="' + x + '" y="' + (H - 10) + '" text-anchor="middle" font-size="11" ' +
+            'fill="currentColor" fill-opacity="0.6">' + r.concurrency + '</text>');
+        });
+
+        // 양 끝 값만 적어 준다. 나머지는 아래 표에 있다.
+        var last = runs[runs.length - 1];
+        parts.push(label(px(last.concurrency), py(last.throughputPerSecond, maxThroughput),
+          Math.round(last.throughputPerSecond).toLocaleString() + '건/s', 'var(--consumer)', -9));
+        parts.push(label(px(last.concurrency), py(last.latency.p95Micros, maxLatency),
+          ms(last.latency.p95Micros), 'var(--danger)', 17));
+
+        chart.innerHTML = parts.join('');
+
+        function line(points, yOf, color) {
+          return '<polyline fill="none" stroke="' + color + '" stroke-width="2" ' +
+            'stroke-linejoin="round" stroke-linecap="round" points="' +
+            points.map(function (r) { return px(r.concurrency) + ',' + yOf(r); }).join(' ') + '" />';
+        }
+        function dot(x, y, color) {
+          return '<circle cx="' + x + '" cy="' + y + '" r="3.5" fill="' + color + '" />';
+        }
+        function label(x, y, text, color, dy) {
+          var anchor = x > W - 90 ? 'end' : 'start';
+          var dx = anchor === 'end' ? -8 : 8;
+          return '<text x="' + (x + dx) + '" y="' + (y + dy) + '" text-anchor="' + anchor +
+            '" font-size="12" font-weight="700" fill="' + color + '">' + text + '</text>';
+        }
+      }
+
+      /** 줄이 두 개 이상 쌓였을 때만, 실제로 쌓인 숫자로 결론을 쓴다. */
+      function renderTakeaway() {
+        if (runs.length < 2) { takeaway.hidden = true; return; }
+        var first = runs[0];
+        var last = runs[runs.length - 1];
+        var concurrencyGrowth = last.concurrency / first.concurrency;
+        var throughputGrowth = last.throughputPerSecond / first.throughputPerSecond;
+        var latencyGrowth = last.latency.p95Micros / first.latency.p95Micros;
+
+        takeaway.hidden = false;
+        takeaway.innerHTML = '동시 요청을 <strong>' + first.concurrency + '건에서 ' + last.concurrency +
+          '건으로 ' + concurrencyGrowth.toFixed(0) + '배</strong> 올렸다. 그 사이 처리량은 <strong>' +
+          throughputGrowth.toFixed(1) + '배</strong> 늘어나는 데 그쳤고, p95 지연은 <strong>' +
+          latencyGrowth.toFixed(0) + '배</strong>가 됐다. 늘어난 요청은 처리량이 아니라 대기 줄로 갔다. ' +
+          '동기 처리에서는 <strong>먼저 무너지는 것이 정확성이 아니라 응답</strong>이다.';
+      }
+
+      function renderResult(result) {
+        var l = result.latency;
+        var strained = result.pool.peakAwaiting > 0;
+        var broken = result.verdict === 'FAILING';
+        var tone = broken ? ' is-broken' : (strained ? ' is-strained' : '');
+
+        var failures = result.failures.length
+          ? '<p class="load-failures"><strong>실패 ' + result.failed + '건</strong> — ' +
+            result.failures.map(function (f) { return f.reason + ' ' + f.count + '건'; }).join(', ') + '</p>'
+          : '';
+
+        resultPanel.innerHTML =
+          '<div class="guard-result-head">' + verdictBadge(result.verdict) +
+            '<p class="load-headline">' + result.headline + '</p></div>' +
+          '<dl class="load-metrics is-key">' +
+            metric('처리량', Math.round(result.throughputPerSecond).toLocaleString(), '건/초') +
+            metric('p95 응답 지연', ms(l.p95Micros), '스무 명 중 열아홉은 이 안에 받았다', tone) +
+            metric('풀 앞 대기 최대', result.pool.peakAwaiting.toLocaleString() + '건',
+              '커넥션 ' + result.pool.maxPoolSize + '개 · ' + result.pool.samples + '회 관측', tone) +
+            metric('기다리다 떠났을 요청', result.wouldHaveGivenUp.toLocaleString() + '건',
+              result.clientPatienceMillis.toLocaleString() + 'ms를 넘긴 요청', broken ? ' is-broken' : '') +
+          '</dl>' +
+          '<dl class="load-metrics">' +
+            metric('동시 요청', result.concurrency.toLocaleString() + '건', '정원 ' + result.capacity + ' · 워밍업 ' + result.warmupRequests + '건 선행') +
+            metric('전체 소요', result.elapsedMillis.toLocaleString() + 'ms', '마지막 응답까지') +
+            metric('p50 응답 지연', ms(l.p50Micros), '절반은 이 안에 받았다') +
+            metric('가장 느린 응답', ms(l.maxMicros), '가장 빠른 응답의 ' + Math.round(l.maxMicros / Math.max(1, l.minMicros)) + '배') +
+            metric('사라진 차감', result.ledger.lostDecrements.toLocaleString() + '칸',
+              '확정 ' + result.ledger.confirmed + '건 · 실제로 빠진 자리 ' + result.ledger.seatsTaken + '칸',
+              result.ledger.lostDecrements > 0 ? ' is-broken' : '') +
+          '</dl>' +
+          failures +
+          '<ul class="load-notes">' +
+            result.notes.map(function (note) { return '<li>' + note + '</li>'; }).join('') +
+          '</ul>';
+      }
+
+
+      /**
+       * 같은 부하를 보호 없는 코드와 다 켠 코드에 한 번씩 건다.
+       * 이 화면이 답하려는 질문은 하나다 — 다 고치면 빨라지는가.
+       */
+      function compare() {
+        if (busy || !meta) { return; }
+        var concurrency = Number(concurrencyInput.value);
+        if (!concurrency || concurrency < 1) { setStatus('동시 요청 수를 1 이상으로 적는다.', true); return; }
+        var patience = Number(patienceInput.value) || meta.defaultClientPatienceMillis;
+
+        lock(true);
+        compareButton.textContent = '두 번 재는 중…';
+        setStatus('동시 ' + concurrency + '건을 0단계와 3단계에 각각 밀어 넣는 중…', false);
+
+        fetch(baseUrl() + '/load/comparisons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ concurrency: concurrency, clientPatienceMillis: patience })
+        })
+          .then(function (response) {
+            if (!response.ok) { throw new Error('HTTP ' + response.status); }
+            return response.json();
+          })
+          .then(function (comparison) {
+            renderComparison(comparison);
+            setStatus('비교 완료 — ' + comparison.headline, false);
+          })
+          .catch(function (error) {
+            setStatus('비교하지 못했다 (' + error.message + ').', true);
+          })
+          .finally(function () {
+            compareButton.textContent = '0단계와 3단계를 나란히 재기';
+            lock(false);
+          });
+      }
+
+      function renderComparison(c) {
+        var before = c.unguarded;
+        var after = c.guarded;
+
+        // 고쳐진 것과 남은 것을 행 단위로 가른다. 이 대비가 이 표의 전부다.
+        var rows = [
+          row('사라진 차감', before.ledger.lostDecrements + '칸', after.ledger.lostDecrements + '칸',
+            after.ledger.lostDecrements === 0 && before.ledger.lostDecrements > 0, '고쳐졌다', '남았다'),
+          row('p95 응답 지연', ms(before.latency.p95Micros), ms(after.latency.p95Micros),
+            after.latency.p95Micros < before.latency.p95Micros * 0.9, '빨라졌다', '그대로다'),
+          row('처리량', Math.round(before.throughputPerSecond).toLocaleString() + '건/s',
+            Math.round(after.throughputPerSecond).toLocaleString() + '건/s',
+            after.throughputPerSecond > before.throughputPerSecond * 1.1, '늘었다', '그대로다'),
+          row('풀 앞 대기 최대', before.pool.peakAwaiting + '건', after.pool.peakAwaiting + '건',
+            after.pool.peakAwaiting < before.pool.peakAwaiting * 0.9, '줄었다', '그대로다')
+        ];
+
+        comparePanel.innerHTML =
+          '<p class="load-compare-headline">' + c.headline + '</p>' +
+          '<div class="load-compare-table-wrap"><table class="load-compare-table">' +
+            '<thead><tr><th scope="col"></th>' +
+              '<th scope="col">' + before.targetLabel + '<small>보호 장치 ' + before.addedGuard + '</small></th>' +
+              '<th scope="col">' + after.targetLabel + '<small>+ ' + after.addedGuard + '</small></th>' +
+              '<th scope="col"></th></tr></thead><tbody>' + rows.join('') + '</tbody>' +
+          '</table></div>' +
+          '<ul class="load-notes">' +
+            c.notes.map(function (note) { return '<li>' + note + '</li>'; }).join('') +
+          '</ul>';
+
+        function row(label, beforeValue, afterValue, improved, goodWord, badWord) {
+          return '<tr class="' + (improved ? 'is-fixed' : 'is-remains') + '">' +
+            '<th scope="row">' + label + '</th>' +
+            '<td>' + beforeValue + '</td><td>' + afterValue + '</td>' +
+            '<td class="verdict">' + (improved ? goodWord : badWord) + '</td></tr>';
+        }
+      }
+
+      function metric(label, value, hint, tone) {
+        return '<div class="load-metric' + (tone || '') + '"><dt>' + label + '</dt><dd>' + value +
+          '<small>' + hint + '</small></dd></div>';
+      }
+
+      connectButton.addEventListener('click', function () { connect(true); });
+      baseInput.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') { connect(true); }
+      });
+      runButton.addEventListener('click', function () {
+        var value = Number(concurrencyInput.value);
+        if (!value || value < 1) { setStatus('동시 요청 수를 1 이상으로 적는다.', true); return; }
+        run(value, null);
+      });
+      sweepButton.addEventListener('click', sweep);
+      compareButton.addEventListener('click', compare);
+      resetButton.addEventListener('click', function () {
+        runs = [];
+        renderTrend();
+        resultPanel.innerHTML = '<p class="guard-result-empty">한 번 실행하면 결과가 여기에 나온다.</p>';
+      });
+
+      connect(true);
+    })();
+  </script>
+</body>
+</html>

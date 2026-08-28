@@ -1,0 +1,968 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "excalidraw-mcp-for-codex",
+  "elements": [
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#1e1e1e",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "title"
+      },
+      "id": "title",
+      "type": "text",
+      "x": 470,
+      "y": 25,
+      "width": 560,
+      "height": 45,
+      "text": "Apache Kafka 핵심 구성요소와 데이터 흐름",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#edf2ff",
+      "strokeColor": "#364fc7",
+      "fillStyle": "hachure",
+      "strokeWidth": 3,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "zIndex": -10,
+      "metadata": {
+        "role": "cluster-boundary"
+      },
+      "id": "cluster-zone",
+      "type": "rectangle",
+      "x": 560,
+      "y": 120,
+      "width": 400,
+      "height": 640,
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#364fc7",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "cluster-label"
+      },
+      "id": "cluster-label",
+      "type": "text",
+      "x": 670,
+      "y": 145,
+      "width": 190,
+      "height": 37,
+      "text": "Kafka Cluster",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#dbe4ff",
+      "strokeColor": "#364fc7",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "broker"
+      },
+      "id": "broker-1",
+      "type": "rectangle",
+      "x": 610,
+      "y": 210,
+      "width": 280,
+      "height": 100,
+      "label": {
+        "text": "Kafka Broker 1\n이벤트 저장 · 요청 처리",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#dbe4ff",
+      "strokeColor": "#364fc7",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "broker"
+      },
+      "id": "broker-2",
+      "type": "rectangle",
+      "x": 610,
+      "y": 365,
+      "width": 280,
+      "height": 100,
+      "label": {
+        "text": "Kafka Broker 2\n이벤트 저장 · 요청 처리",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#dbe4ff",
+      "strokeColor": "#364fc7",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "broker"
+      },
+      "id": "broker-3",
+      "type": "rectangle",
+      "x": 610,
+      "y": 520,
+      "width": 280,
+      "height": 100,
+      "label": {
+        "text": "Kafka Broker 3\n이벤트 저장 · 요청 처리",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "annotation"
+      },
+      "id": "cluster-note",
+      "type": "text",
+      "x": 625,
+      "y": 680,
+      "width": 250,
+      "height": 62,
+      "text": "Broker들이 데이터를\n분산 저장하고 복제한다",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#fff3bf",
+      "strokeColor": "#f08c00",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "application"
+      },
+      "id": "producer-app",
+      "type": "rectangle",
+      "x": 20,
+      "y": 185,
+      "width": 170,
+      "height": 94,
+      "label": {
+        "text": "생산자\n애플리케이션",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#e7f5ff",
+      "strokeColor": "#1971c2",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "producer-api"
+      },
+      "id": "producer-api",
+      "type": "rectangle",
+      "x": 250,
+      "y": 185,
+      "width": 205,
+      "height": 80,
+      "label": {
+        "text": "Producer API",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#fff3bf",
+      "strokeColor": "#f08c00",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "external-source"
+      },
+      "id": "external-source",
+      "type": "rectangle",
+      "x": 20,
+      "y": 385,
+      "width": 170,
+      "height": 94,
+      "label": {
+        "text": "외부 시스템\nDB · 파일",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#e7f5ff",
+      "strokeColor": "#1971c2",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "kafka-connect"
+      },
+      "id": "connect-source",
+      "type": "rectangle",
+      "x": 250,
+      "y": 375,
+      "width": 255,
+      "height": 100,
+      "label": {
+        "text": "Kafka Connect\nSource Connector",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#f3f0ff",
+      "strokeColor": "#7048e8",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "admin-tool"
+      },
+      "id": "admin-tool",
+      "type": "rectangle",
+      "x": 20,
+      "y": 590,
+      "width": 170,
+      "height": 80,
+      "label": {
+        "text": "관리 도구",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#f3f0ff",
+      "strokeColor": "#7048e8",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "admin-api"
+      },
+      "id": "admin-api",
+      "type": "rectangle",
+      "x": 250,
+      "y": 590,
+      "width": 200,
+      "height": 80,
+      "label": {
+        "text": "Admin API",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#e7f5ff",
+      "strokeColor": "#1971c2",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "consumer-api"
+      },
+      "id": "consumer-api",
+      "type": "rectangle",
+      "x": 1080,
+      "y": 185,
+      "width": 205,
+      "height": 80,
+      "label": {
+        "text": "Consumer API",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#ebfbee",
+      "strokeColor": "#2b8a3e",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "application"
+      },
+      "id": "consumer-app",
+      "type": "rectangle",
+      "x": 1350,
+      "y": 185,
+      "width": 170,
+      "height": 94,
+      "label": {
+        "text": "소비자\n애플리케이션",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#e7f5ff",
+      "strokeColor": "#1971c2",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "kafka-connect"
+      },
+      "id": "connect-sink",
+      "type": "rectangle",
+      "x": 1080,
+      "y": 375,
+      "width": 230,
+      "height": 100,
+      "label": {
+        "text": "Kafka Connect\nSink Connector",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#ebfbee",
+      "strokeColor": "#2b8a3e",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "external-sink"
+      },
+      "id": "external-sink",
+      "type": "rectangle",
+      "x": 1350,
+      "y": 385,
+      "width": 170,
+      "height": 94,
+      "label": {
+        "text": "외부 시스템\nDB · 검색엔진",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "#f3f0ff",
+      "strokeColor": "#7048e8",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "roundness": {
+        "type": 3
+      },
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "kafka-streams"
+      },
+      "id": "streams-app",
+      "type": "rectangle",
+      "x": 1080,
+      "y": 570,
+      "width": 260,
+      "height": 120,
+      "label": {
+        "text": "Kafka Streams\n애플리케이션\n변환 · 집계 · 조인",
+        "fontSize": 20
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "producer-app-to-api",
+      "type": "arrow",
+      "x": 190,
+      "y": 225,
+      "width": 60,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          60,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "producer-api-to-cluster",
+      "type": "arrow",
+      "x": 450,
+      "y": 225,
+      "width": 110,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          110,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "label": {
+        "text": "발행",
+        "fontSize": 16
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "cluster-to-consumer-api",
+      "type": "arrow",
+      "x": 960,
+      "y": 225,
+      "width": 120,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          120,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "label": {
+        "text": "구독",
+        "fontSize": 16
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "consumer-api-to-app",
+      "type": "arrow",
+      "x": 1280,
+      "y": 225,
+      "width": 70,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          70,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "external-to-source",
+      "type": "arrow",
+      "x": 190,
+      "y": 425,
+      "width": 60,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          60,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "source-to-cluster",
+      "type": "arrow",
+      "x": 450,
+      "y": 425,
+      "width": 110,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          110,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "label": {
+        "text": "수집",
+        "fontSize": 16
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "cluster-to-sink",
+      "type": "arrow",
+      "x": 960,
+      "y": 425,
+      "width": 120,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          120,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "label": {
+        "text": "전달",
+        "fontSize": 16
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "sink-to-external",
+      "type": "arrow",
+      "x": 1280,
+      "y": 425,
+      "width": 70,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          70,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "admin-tool-to-api",
+      "type": "arrow",
+      "x": 190,
+      "y": 630,
+      "width": 60,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          60,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "admin-api-to-cluster",
+      "type": "arrow",
+      "x": 450,
+      "y": 630,
+      "width": 110,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          110,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "label": {
+        "text": "조회 · 관리",
+        "fontSize": 16
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "cluster-to-streams",
+      "type": "arrow",
+      "x": 960,
+      "y": 600,
+      "width": 120,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          120,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "label": {
+        "text": "읽기",
+        "fontSize": 16
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "id": "streams-to-cluster",
+      "type": "arrow",
+      "x": 1080,
+      "y": 665,
+      "width": 120,
+      "height": 1,
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -120,
+          0
+        ]
+      ],
+      "startArrowhead": null,
+      "endArrowhead": "arrow",
+      "label": {
+        "text": "결과 쓰기",
+        "fontSize": 16
+      },
+      "version": 1,
+      "updated": 1782134719417
+    },
+    {
+      "backgroundColor": "transparent",
+      "strokeColor": "#495057",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "angle": 0,
+      "groupIds": [],
+      "locked": false,
+      "metadata": {
+        "role": "legend"
+      },
+      "id": "legend-data",
+      "type": "text",
+      "x": 1110,
+      "y": 755,
+      "width": 360,
+      "height": 37,
+      "text": "실선: 이벤트 데이터 흐름   점선: 관리 흐름",
+      "version": 1,
+      "updated": 1782134719417
+    }
+  ],
+  "appState": {
+    "scrollX": 28,
+    "scrollY": 71,
+    "zoom": 1
+  },
+  "files": {}
+}

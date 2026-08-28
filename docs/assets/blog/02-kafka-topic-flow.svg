@@ -1,0 +1,62 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2L10 6L2 10" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .title { font: 700 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .label { font: 700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .sub { font: 500 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .small { font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #64748b; }
+      .blue { font: 700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #1d4ed8; }
+      .green { font: 700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #166534; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="700" fill="#ffffff"/>
+  <text x="600" y="54" text-anchor="middle" class="title">Kafka 도입 후: 이벤트를 Topic에 저장하고 독립적으로 읽는다</text>
+  <text x="600" y="86" text-anchor="middle" class="sub">생산자는 Topic에 발행하고, 소비자는 각자의 속도로 같은 이벤트를 읽는다.</text>
+
+  <rect x="70" y="285" width="250" height="120" rx="18" fill="#fff7ed" stroke="#f97316" stroke-width="3"/>
+  <text x="195" y="332" text-anchor="middle" class="label">주문 서비스</text>
+  <text x="195" y="366" text-anchor="middle" class="sub">Producer</text>
+
+  <rect x="475" y="245" width="280" height="200" rx="24" fill="#eff6ff" stroke="#2563eb" stroke-width="4"/>
+  <text x="615" y="298" text-anchor="middle" class="blue">Kafka Topic</text>
+  <text x="615" y="336" text-anchor="middle" class="label">order-events</text>
+  <text x="615" y="375" text-anchor="middle" class="sub">이벤트 저장</text>
+  <text x="615" y="405" text-anchor="middle" class="sub">보관 기간 안에서 재처리 가능</text>
+
+  <g stroke="#475569" stroke-width="3" marker-end="url(#arrow)" stroke-linecap="round">
+    <path d="M320 345 L462 345"/>
+    <path d="M755 285 C820 180 865 160 930 160"/>
+    <path d="M755 325 C835 265 865 260 930 260"/>
+    <path d="M755 365 C835 365 865 360 930 360"/>
+    <path d="M755 405 C835 455 865 460 930 460"/>
+    <path d="M755 445 C820 545 865 560 930 560"/>
+  </g>
+
+  <text x="392" y="326" text-anchor="middle" class="small">발행</text>
+  <text x="840" y="326" text-anchor="middle" class="small">구독 / 읽기</text>
+
+  <g>
+    <rect x="930" y="120" width="220" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="1040" y="169" text-anchor="middle" class="green">결제 Consumer</text>
+
+    <rect x="930" y="220" width="220" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="1040" y="269" text-anchor="middle" class="green">알림 Consumer</text>
+
+    <rect x="930" y="320" width="220" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="1040" y="369" text-anchor="middle" class="green">재고 Consumer</text>
+
+    <rect x="930" y="420" width="220" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="1040" y="469" text-anchor="middle" class="green">분석 Consumer</text>
+
+    <rect x="930" y="520" width="220" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="1040" y="569" text-anchor="middle" class="green">추천 Consumer</text>
+  </g>
+
+  <rect x="440" y="590" width="350" height="74" rx="16" fill="#f8fafc" stroke="#94a3b8" stroke-width="2"/>
+  <text x="615" y="620" text-anchor="middle" class="small">생산자는 소비자를 직접 알 필요가 없다.</text>
+  <text x="615" y="646" text-anchor="middle" class="small">소비자는 같은 이벤트를 독립적으로 읽는다.</text>
+</svg>

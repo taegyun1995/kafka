@@ -1,0 +1,13 @@
+.DS_Store
+
+# Gradle
+.gradle/
+.gradle-local/
+build/
+backend/.gradle/
+backend/build/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/

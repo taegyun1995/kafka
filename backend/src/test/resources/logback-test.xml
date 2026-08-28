@@ -1,0 +1,9 @@
+<configuration>
+    <!-- 단계별 보고가 프레임워크 로그에 묻히지 않도록 테스트에서는 WARN 이상만 남긴다. -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder><pattern>%-5level %logger{36} - %msg%n</pattern></encoder>
+    </appender>
+    <root level="WARN">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

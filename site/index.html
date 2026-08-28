@@ -36,6 +36,9 @@
     <a class="tool-launch" href="./yaml-builder.html" aria-label="Spring YAML Builder 열기">
       <span>TOOL</span><strong>YAML Builder</strong>
     </a>
+    <a class="tool-launch" href="./popup-pass-plan.html" aria-label="PopupPass 실습 기획 열기">
+      <span>PROJECT</span><strong>PopupPass</strong>
+    </a>
     <details class="mobile-nav">
       <summary>목차</summary>
       <nav aria-label="모바일 문서 목차">
@@ -71,6 +74,7 @@
         <span class="toc-group">02 · Kafka Cluster</span>
         <a href="#broker-intro">Broker Process</a>
         <a href="#broker-anatomy">Replica 저장 구조</a>
+        <a href="#broker-retention">Retention · Compaction</a>
         <a href="#broker-entry">Network · Security</a>
         <a href="#broker-listener">Listener · Bind · Advertise</a>
         <a href="#broker-bootstrap">Bootstrap · Metadata</a>
@@ -153,6 +157,7 @@
         <span class="toc-group">02 · Broker</span>
         <a href="#broker-intro">Broker Process · 경계</a>
         <a href="#broker-anatomy">Replica 저장 구조</a>
+        <a href="#broker-retention">Retention · Compaction</a>
         <a href="#broker-entry">Network · Security</a>
         <a href="#broker-listener">Listener · Bind · Advertise</a>
         <a href="#broker-bootstrap">Bootstrap · Metadata</a>
@@ -1993,6 +1998,85 @@ while (running) {
             </table>
           </div>
 
+          <h3>Eager와 Cooperative는 Rebalance 중단 범위가 다르다</h3>
+          <p>위 네 단계에서 <strong>02 · 기존 Assignment 회수</strong>의 범위는 Protocol에 따라 완전히 달라집니다. Rebalance 때 처리가 얼마나 멈추는지를 결정하는 것이 바로 이 차이입니다.</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>구분</th><th>Eager</th><th>Cooperative (Incremental)</th></tr></thead>
+              <tbody>
+                <tr><td>반납 범위</td><td>모든 Consumer가 <strong>가진 Partition 전부</strong>를 반납</td><td>실제로 주인이 <strong>바뀌는 Partition만</strong> 반납</td></tr>
+                <tr><td>처리 중단</td><td>Group 전체가 멈춤 (Stop-the-world)</td><td>영향받지 않는 Partition은 계속 처리</td></tr>
+                <tr><td>Rebalance 라운드</td><td>1회</td><td>2회 (반납 → 재배분)</td></tr>
+                <tr><td>비용이 커지는 지점</td><td>Consumer·Partition이 많을수록 전체 정지 시간이 길어짐</td><td>라운드가 한 번 더 도는 대신 정지 범위가 작음</td></tr>
+                <tr><td>Assignor</td><td><code>RangeAssignor</code> · <code>RoundRobinAssignor</code> · <code>StickyAssignor</code></td><td><code>CooperativeStickyAssignor</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <aside class="note note-accent">
+            <strong>Consumer 한 대가 늘었을 뿐인데 전부 멈추는 이유</strong>
+            <p>Eager는 누가 어떤 Partition을 갖게 될지 계산하기 <strong>전에</strong> 일단 전부 반납시킵니다. 그래서 결과적으로 그대로 유지될 Partition까지 잠깐 주인이 없어집니다. Cooperative는 새 배분을 먼저 계산한 뒤 <em>바뀌는 것만</em> 반납하므로, 나머지 Consumer는 그동안에도 <code>poll()</code>을 계속 돌립니다.</p>
+          </aside>
+
+          <h3>배분 전략은 같은 상황에서 다른 결과를 만든다</h3>
+          <p><a href="#consumer-config"><code>partition.assignment.strategy</code></a>는 Group 멤버에게 Partition을 나누는 방법을 정합니다. Topic <code>A</code>·<code>B</code>가 각각 Partition 3개이고 Consumer가 2대일 때를 비교하면 차이가 분명해집니다.</p>
+
+          <div class="code-block">
+            <div class="code-header">
+              <span>Topic A · B (각 3 Partition) · Consumer 2대</span>
+              <button type="button" data-copy-target="assignment-strategy-code">복사</button>
+            </div>
+            <pre><code id="assignment-strategy-code">Range          Topic마다 따로 나눈다 → 앞쪽 Consumer에 쏠린다
+  C1: A-0 A-1   B-0 B-1      (4개)
+  C2: A-2       B-2          (2개)
+
+RoundRobin     전체를 한 줄로 세워 번갈아 준다 → 균형이 맞는다
+  C1: A-0 A-2   B-1          (3개)
+  C2: A-1       B-0 B-2      (3개)
+
+Sticky         첫 배분의 균형은 RoundRobin과 같은 3:3이다
+               차이는 C3이 합류할 때 드러난다
+  RoundRobin → 전체를 다시 계산해 기존 할당이 크게 뒤섞인다
+  Sticky     → 2:2:2가 되도록 옮겨야 할 최소 개수만 이동한다</code></pre>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Assignor</th><th>Protocol</th><th>언제 고르는가</th></tr></thead>
+              <tbody>
+                <tr><td><code>RangeAssignor</code></td><td>Eager</td><td>Topic이 여러 개면 앞쪽 Consumer에 쏠립니다. 대신 여러 Topic의 같은 번호 Partition이 한 Consumer에 모이므로, Key 구조가 같은 Topic을 짝지어 처리할 때 이점이 있습니다.</td></tr>
+                <tr><td><code>RoundRobinAssignor</code></td><td>Eager</td><td>균형이 중요하고 재배분 때 할당이 크게 바뀌는 것은 감수할 수 있을 때 씁니다.</td></tr>
+                <tr><td><code>StickyAssignor</code></td><td>Eager</td><td>균형을 맞추면서 기존 할당을 최대한 유지합니다. 다만 Eager이므로 Rebalance 순간에는 여전히 전체가 멈춥니다.</td></tr>
+                <tr><td><code>CooperativeStickyAssignor</code></td><td>Cooperative</td><td>Sticky의 이점에 중단 범위 축소까지 더합니다. <strong>새로 만드는 Consumer의 기본 선택</strong>으로 둡니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <aside class="warning">
+            <strong>Eager에서 Cooperative로 바꾸려면 롤링 재시작을 두 번 해야 한다</strong>
+            <p>Kafka Java Client의 <code>partition.assignment.strategy</code> 기본값은 <code>RangeAssignor, CooperativeStickyAssignor</code> <strong>목록</strong>이고, Group의 모든 멤버가 공통으로 지원하는 것 중 앞의 <code>Range</code>가 선택됩니다. 곧바로 <code>CooperativeSticky</code> 하나만 지정하면 아직 Eager로 도는 기존 멤버와 Protocol이 맞지 않습니다. ① 먼저 두 Assignor를 모두 나열한 상태로 전체를 재시작해 모든 멤버가 Cooperative를 지원하게 만들고, ② 그다음 재시작에서 <code>Range</code>를 목록에서 뺍니다.</p>
+          </aside>
+
+          <h3>Static Membership은 재시작 Rebalance를 건너뛴다</h3>
+          <p>기본 동작에서는 Consumer가 종료되면 Group에서 빠지고 다시 뜰 때 새 멤버로 합류합니다. 배포 한 번에 Rebalance가 두 번 일어나는 셈입니다. <a href="#consumer-config"><code>group.instance.id</code></a>를 주면 그 Consumer는 <strong>이름이 고정된 멤버</strong>가 됩니다.</p>
+
+          <ol class="step-list">
+            <li><span>01</span><div><strong>고유 ID 부여</strong><p>인스턴스마다 <code>group.instance.id</code>를 다르게 줍니다. 같은 Group에서 값이 겹치면 먼저 있던 Consumer가 <code>FencedInstanceIdException</code>으로 밀려납니다.</p></div></li>
+            <li><span>02</span><div><strong>종료해도 자리 유지</strong><p>Coordinator는 그 멤버의 Assignment를 즉시 회수하지 않고 <code>session.timeout.ms</code> 동안 자리를 남겨 둡니다.</p></div></li>
+            <li><span>03</span><div><strong>같은 ID로 복귀</strong><p>시간 안에 같은 <code>group.instance.id</code>로 다시 들어오면 이전 Assignment를 그대로 돌려받고, Rebalance는 일어나지 않습니다.</p></div></li>
+          </ol>
+
+          <aside class="warning">
+            <strong>Static Membership의 대가는 장애 감지가 늦어지는 것이다</strong>
+            <p>자리를 비워 두는 동작은 <strong>정상 재시작인지 진짜 장애인지 구분하지 않습니다.</strong> Consumer가 죽어도 <code>session.timeout.ms</code>가 지나야 그 Partition이 다른 Consumer에게 넘어갑니다. 배포 시간에 맞춰 이 값을 늘리면 그만큼 장애 복구도 느려지므로, 재시작에 실제로 걸리는 시간을 기준으로 최소한만 잡습니다.</p>
+          </aside>
+
+          <aside class="warning">
+            <strong>반납 직전에 Commit하지 않으면 다른 Consumer가 다시 처리한다</strong>
+            <p>Rebalance로 Partition을 반납할 때 처리한 만큼을 Commit하지 않으면, 그 Partition을 넘겨받은 Consumer는 마지막 <a href="#consumer-offset">Committed Offset</a>부터 다시 읽습니다. Kafka Java Client에서는 <code>ConsumerRebalanceListener</code>의 <code>onPartitionsRevoked()</code>에서 Commit하고, <a href="#consumer-spring">Spring Kafka</a>에서는 Listener Container가 이 시점을 처리합니다. 그래도 기본은 <a href="#guarantees">At-least-once</a>이므로 업무 처리 자체가 <a href="#end-to-end-consistency">멱등</a>해야 합니다.</p>
+          </aside>
+
           <h3>Lag은 Consumer가 얼마나 뒤처졌는가를 나타낸다</h3>
           <div class="summary-boundaries" aria-label="Consumer Lag을 해석하는 기준">
             <article><strong>Log End Offset</strong><p>Partition에 현재까지 기록된 끝 위치입니다.</p></article>
@@ -2005,6 +2089,7 @@ while (running) {
             <strong>Consumer 종료도 Commit 정책과 함께 봐야 한다</strong>
             <p>새 Record 수신을 멈추고 진행 중인 업무 처리를 끝낸 뒤 Offset을 Commit하고 Consumer를 닫아야 합니다. 강제 종료되면 마지막 Commit 이후의 Record가 다시 전달될 수 있습니다.</p>
           </aside>
+          <p class="source-note">Assignor·Static Membership 동작과 <code>partition.assignment.strategy</code> 기본값은 <a href="https://kafka.apache.org/43/configuration/consumer-configs/">Apache Kafka 4.3 Consumer Configs</a>와 <a href="https://kafka.apache.org/43/javadoc/org/apache/kafka/clients/consumer/ConsumerRebalanceListener.html">ConsumerRebalanceListener Javadoc</a>을 기준으로 정리했습니다.</p>
         </section>
 
         <section id="kafka-transaction" class="content-section">
@@ -2322,9 +2407,170 @@ try {
           </div>
         </section>
 
-        <section id="broker-entry" class="content-section">
+        <section id="broker-retention" class="content-section">
           <div class="section-heading">
             <span>02-2</span>
+            <div>
+              <p>Kafka Storage · Retention &amp; Compaction</p>
+              <h2>Kafka는 읽은 Record를 지우지 않고 Segment를 정리한다</h2>
+            </div>
+          </div>
+
+          <p>Kafka Broker는 Consumer가 Record를 읽었다고 해서 그 Record를 지우지 않습니다. 저장된 Record를 언제 정리할지는 오직 <strong>Topic의 보존 정책</strong>이 결정합니다. 그래서 여러 Consumer Group이 같은 Partition을 각자의 Offset으로 독립해서 읽을 수 있고, 이미 처리한 구간을 다시 읽을 수도 있습니다.</p>
+
+          <aside class="note note-accent">
+            <strong>Consumer Offset과 Retention은 서로 다른 축이다</strong>
+            <p><a href="#consumer-offset">Committed Offset</a>은 <em>Consumer Group이 어디까지 처리했는가</em>를 기록할 뿐이고, Broker가 <em>Record를 언제까지 보관하는가</em>와는 무관합니다. Consumer가 하나도 없어도 보존 기간이 지나면 정리되고, 반대로 모든 Consumer가 다 읽었어도 기간이 남아 있으면 Record는 그대로 남습니다.</p>
+          </aside>
+
+          <h3>cleanup.policy가 정리 방식을 결정한다</h3>
+          <div class="summary-boundaries" aria-label="cleanup.policy가 지정할 수 있는 세 가지 정리 방식과 공통 단위">
+            <article><strong>delete</strong><p>시간·용량 기준을 넘긴 <strong>닫힌 Segment</strong>를 통째로 삭제합니다. “최근 N일치만 필요한” Event Log Topic의 기본 동작입니다.</p></article>
+            <article><strong>compact</strong><p>같은 Key의 <strong>이전 값</strong>을 정리해 Key별 최신 값만 남깁니다. 흐름이 아니라 <strong>현재 상태</strong>가 필요한 Topic에 씁니다.</p></article>
+            <article><strong>compact,delete</strong><p>두 정책을 함께 적용합니다. Key별 최신 값을 남기되, 보존 기간이 지난 Segment는 그것대로 삭제합니다.</p></article>
+            <article><strong>공통 단위</strong><p>어느 정책이든 실제 대상은 <strong>Segment</strong>입니다. Record 하나를 골라 즉시 제거하는 동작이 아닙니다.</p></article>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>설정</th><th>기본값</th><th>무엇을 정하는가</th></tr></thead>
+              <tbody>
+                <tr><td><code>cleanup.policy</code></td><td><code>delete</code></td><td>정리 방식. <code>delete</code> · <code>compact</code> · <code>compact,delete</code></td></tr>
+                <tr><td><code>retention.ms</code></td><td>604800000 (7일)</td><td>닫힌 Segment를 보관하는 시간</td></tr>
+                <tr><td><code>retention.bytes</code></td><td><code>-1</code> (무제한)</td><td><strong>Partition 하나당</strong> 보관하는 최대 크기</td></tr>
+                <tr><td><code>segment.bytes</code></td><td>1073741824 (1 GiB)</td><td>Active Segment가 Roll되는 크기 기준</td></tr>
+                <tr><td><code>segment.ms</code></td><td>604800000 (7일)</td><td>Active Segment가 Roll되는 시간 기준</td></tr>
+                <tr><td><code>delete.retention.ms</code></td><td>86400000 (24시간)</td><td>compact Topic에서 Tombstone을 남겨 두는 시간</td></tr>
+                <tr><td><code>min.cleanable.dirty.ratio</code></td><td><code>0.5</code></td><td>Log Cleaner가 Compaction을 시작하는 dirty 비율</td></tr>
+                <tr><td><code>min.compaction.lag.ms</code></td><td><code>0</code></td><td>Record가 Compaction 대상이 되기까지의 최소 대기 시간</td></tr>
+                <tr><td><code>max.compaction.lag.ms</code></td><td>Long.MAX (사실상 무제한)</td><td>dirty 비율에 못 미쳐도 Compaction을 강제하는 최대 지연</td></tr>
+                <tr><td><code>file.delete.delay.ms</code></td><td>60000 (60초)</td><td>삭제 표시된 Segment 파일을 실제로 지우기까지의 대기</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>delete는 닫힌 Segment를 네 단계로 정리한다</h3>
+          <ol class="step-list">
+            <li><span>01</span><div><strong>Segment Roll</strong><p>Active Segment가 <code>segment.bytes</code> 또는 <code>segment.ms</code> 기준에 도달하면 닫히고 새 Segment가 열립니다.</p></div></li>
+            <li><span>02</span><div><strong>대상 선별</strong><p>닫힌 Segment 중 <code>retention.ms</code>를 넘겼거나, Partition 크기가 <code>retention.bytes</code>를 넘어 오래된 쪽부터 줄여야 하는 Segment를 고릅니다.</p></div></li>
+            <li><span>03</span><div><strong>삭제 표시</strong><p>대상 Segment 파일 이름을 <code>.deleted</code>로 바꿔 읽기 대상에서 먼저 제외합니다.</p></div></li>
+            <li><span>04</span><div><strong>실제 삭제</strong><p><code>file.delete.delay.ms</code>가 지난 뒤 파일을 디스크에서 제거합니다.</p></div></li>
+          </ol>
+
+          <aside class="warning">
+            <strong>Active Segment는 Retention 대상이 아니다</strong>
+            <p><code>retention.ms</code>를 1시간으로 줄여도 <code>segment.ms</code>가 7일이면, 현재 쓰고 있는 Segment는 7일이 지나야 닫히고 그 뒤부터 보존 시간이 계산됩니다. “보존 기간을 줄였는데 디스크가 안 줄어든다”는 상황은 대부분 Segment가 아직 Roll되지 않았기 때문입니다. 보존 시간을 짧게 가져가려면 <code>segment.ms</code>·<code>segment.bytes</code>도 함께 낮춰야 합니다.</p>
+          </aside>
+
+          <h3>compact는 Key별 최신 값만 남긴다</h3>
+          <p>Log Cleaner는 Partition Log를 이미 정리된 <strong>Tail</strong>과 아직 정리되지 않은 <strong>Head</strong>로 나눠 봅니다. Head가 차지하는 비율이 <code>min.cleanable.dirty.ratio</code>를 넘으면 Cleaner가 동작해, Head에서 Key별 최신 Offset을 모은 뒤 그보다 오래된 같은 Key의 Record를 제거하며 Segment를 다시 씁니다.</p>
+
+          <div class="code-block">
+            <div class="code-header">
+              <span>user-state Partition 0 · Compaction 전후</span>
+              <button type="button" data-copy-target="log-compaction-example-code">복사</button>
+            </div>
+            <pre><code id="log-compaction-example-code">Compaction 전
+offset  key      value
+     0  user-1   {"grade":"BRONZE"}
+     1  user-2   {"grade":"SILVER"}
+     2  user-1   {"grade":"SILVER"}
+     3  user-3   {"grade":"GOLD"}
+     4  user-2   null                  ← Tombstone
+     5  user-1   {"grade":"GOLD"}
+
+Compaction 후
+offset  key      value
+     3  user-3   {"grade":"GOLD"}
+     4  user-2   null                  ← delete.retention.ms 동안 유지
+     5  user-1   {"grade":"GOLD"}</code></pre>
+          </div>
+
+          <div class="summary-boundaries" aria-label="Compaction이 Log에 남기는 결과를 읽는 네 가지 기준">
+            <article><strong>Offset은 그대로</strong><p>Compaction은 Offset을 다시 매기지 않습니다. 0·1·2가 사라져도 남은 Record는 원래 Offset을 유지하고, Log에는 <strong>구멍</strong>이 생깁니다.</p></article>
+            <article><strong>순서도 그대로</strong><p>Record를 제거만 할 뿐 순서를 바꾸지 않습니다. Partition 안의 상대 순서는 그대로 보존됩니다.</p></article>
+            <article><strong>Key가 필수</strong><p>어떤 상태를 대표하는지 알 수 없으므로 Key가 <code>null</code>인 Record는 Compaction의 기준이 될 수 없습니다. compact Topic에는 항상 Key를 넣습니다.</p></article>
+            <article><strong>Active Segment는 제외</strong><p>현재 쓰기 중인 Segment는 Compaction 대상이 아닙니다. 가장 최근에 발행한 값은 아직 이전 값과 함께 남아 있습니다.</p></article>
+          </div>
+
+          <h3>Tombstone은 바로 사라지지 않는다</h3>
+          <p><a href="#record">Producer가 보낸 <code>value=null</code> Record</a>는 compact Topic에서 “이 Key의 상태를 지운다”는 표시가 됩니다. 다만 Compaction이 일어날 때 Tombstone 자체가 즉시 사라지지는 않습니다.</p>
+          <ol class="step-list">
+            <li><span>01</span><div><strong>같은 Key의 이전 값 제거</strong><p>Cleaner가 Tombstone보다 앞선 같은 Key의 Record를 모두 지웁니다.</p></div></li>
+            <li><span>02</span><div><strong>Tombstone은 유예</strong><p>Tombstone은 <code>delete.retention.ms</code> 동안 Log에 남아, Consumer가 “삭제되었다”는 사실을 읽을 기회를 보장합니다.</p></div></li>
+            <li><span>03</span><div><strong>다음 라운드에서 제거</strong><p>유예 시간이 지난 뒤의 Compaction 라운드에서 Tombstone도 제거됩니다.</p></div></li>
+          </ol>
+
+          <aside class="warning">
+            <strong>오래 멈춘 Consumer는 삭제 사실을 놓칠 수 있다</strong>
+            <p>Consumer가 <code>delete.retention.ms</code>보다 오래 멈춰 있다가 다시 읽기 시작하면, 이전 값도 Tombstone도 모두 정리된 뒤일 수 있습니다. 이 경우 Consumer의 로컬 상태에는 지워졌어야 할 Key가 그대로 남습니다. 상태를 Log로 복원하는 구조라면 이 유예 시간을 Consumer의 최대 중단 시간보다 길게 잡아야 합니다.</p>
+          </aside>
+
+          <h3>어떤 Topic에 무엇을 쓰는가</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Topic 성격</th><th>정책</th><th>이유</th></tr></thead>
+              <tbody>
+                <tr><td>주문·결제 같은 업무 Event</td><td><code>delete</code></td><td>흐름 자체가 의미이므로 기간이 지나면 버려도 됩니다.</td></tr>
+                <tr><td>엔티티의 현재 상태 (Key = 엔티티 ID)</td><td><code>compact</code></td><td>처음부터 읽으면 전체 상태를 복원할 수 있어야 합니다.</td></tr>
+                <tr><td>상태 Topic이지만 무한히 커지면 안 될 때</td><td><code>compact,delete</code></td><td>최신 값을 남기면서 전체 보존 기간도 함께 제한합니다.</td></tr>
+                <tr><td><code>__consumer_offsets</code></td><td><code>compact</code></td><td>Kafka 내장 Topic입니다. Group·Partition별 <strong>최신</strong> Committed Offset만 있으면 됩니다.</td></tr>
+                <tr><td>Kafka Streams changelog</td><td><code>compact</code></td><td>로컬 State Store를 Log에서 다시 만들기 위해 Key별 최신 값이 필요합니다.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <aside class="note note-accent">
+            <strong>KRaft Metadata Log는 Compaction이 아니라 Snapshot을 쓴다</strong>
+            <p>“최신 상태만 남긴다”는 목적은 비슷하지만 방식이 다릅니다. <a href="#kraft-metadata-log">KRaft의 <code>__cluster_metadata</code></a>는 Log Cleaner로 Key별 최신 값을 정리하는 대신, 특정 Offset까지의 상태를 <strong>Snapshot 파일</strong>로 만들고 그 앞 구간의 Log를 잘라 냅니다. 일반 Topic의 <code>cleanup.policy</code>와 혼동하지 않습니다.</p>
+          </aside>
+
+          <aside class="warning">
+            <strong>Retention을 넘긴 Lag은 데이터 유실로 이어진다</strong>
+            <p>Consumer가 오래 멈춰 <a href="#consumer-rebalance">Lag</a>이 커지면, Committed Offset이 가리키던 Record가 이미 정리되었을 수 있습니다. 이때 Fetch는 <code>OffsetOutOfRange</code>가 되고 <a href="#consumer-config"><code>auto.offset.reset</code></a> 설정에 따라 <code>earliest</code>면 남아 있는 가장 오래된 Record로, <code>latest</code>면 Log 끝으로 건너뜁니다. 어느 쪽이든 그 사이 Record는 그 Consumer Group이 영영 읽지 못합니다.</p>
+          </aside>
+
+          <aside class="warning">
+            <strong>compact는 중복 제거가 아니다</strong>
+            <p>Compaction은 <strong>같은 Key의 이전 값</strong>을 정리할 뿐이고, 언제 정리되는지도 보장하지 않습니다. Head 구간에는 같은 Key의 값이 여러 개 그대로 남아 있을 수 있으므로, Consumer는 같은 Key를 여러 번 받는 것을 정상으로 보고 <a href="#end-to-end-consistency">멱등하게</a> 처리해야 합니다. Producer 재시도로 생기는 중복을 막는 것은 <a href="#producer-idempotence">Producer Idempotence</a>의 역할이지 Compaction의 역할이 아닙니다.</p>
+          </aside>
+
+          <details class="topic-fold">
+            <summary>
+              <span>심화 · Cleaner</span>
+              <strong>Compaction 시점을 강제하거나 늦추는 설정 보기</strong>
+            </summary>
+            <div class="topic-fold-body">
+              <p>기본값만 쓰면 Compaction 시점은 Log Cleaner가 dirty 비율을 보고 알아서 정합니다. 언제까지는 반드시 정리되어야 하거나, 반대로 중간 값을 일정 시간 보장해야 한다면 다음 설정으로 양쪽 경계를 잡습니다.</p>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>설정</th><th>범위</th><th>언제 조정하는가</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>min.compaction.lag.ms</code></td><td>Topic</td><td>Record가 최소 이 시간 동안은 정리되지 않게 해, Consumer가 중간 값까지 읽을 시간을 보장합니다.</td></tr>
+                    <tr><td><code>max.compaction.lag.ms</code></td><td>Topic</td><td>dirty 비율이 낮아 Cleaner가 움직이지 않아도, 이 시간이 지나면 Compaction을 강제합니다. “언제까지는 반드시 지워져야 한다”는 삭제 요구가 있을 때 씁니다.</td></tr>
+                    <tr><td><code>log.cleaner.enable</code></td><td>Broker</td><td>기본 <code>true</code>입니다. 끄면 compact Topic이 정리되지 않고 계속 쌓입니다.</td></tr>
+                    <tr><td><code>log.cleaner.threads</code></td><td>Broker</td><td>기본 <code>1</code>입니다. compact Topic이 많거나 커서 정리가 밀릴 때 늘립니다.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <aside class="note note-accent">
+                <strong>min과 max는 반대 방향의 안전장치다</strong>
+                <p><code>min.compaction.lag.ms</code>는 <em>너무 빨리 지워지는 것</em>을, <code>max.compaction.lag.ms</code>는 <em>너무 늦게까지 남는 것</em>을 막습니다. 상태 Topic에서 삭제 시점을 약속해야 한다면 이 둘과 <code>delete.retention.ms</code>를 함께 계산합니다.</p>
+              </aside>
+            </div>
+          </details>
+
+          <p class="source-note">보존·정리 설정과 기본값은 <a href="https://kafka.apache.org/43/configuration/topic-configs/">Apache Kafka 4.3 Topic Configs</a>의 <code>cleanup.policy</code>·<code>retention.*</code>·<code>segment.*</code>·<code>delete.retention.ms</code>·<code>min.cleanable.dirty.ratio</code>를 기준으로 합니다.</p>
+
+          <a class="next-topic" href="#broker-entry">
+            <span>저장 다음에 볼 경계</span>
+            <strong>Client와 Broker 사이의 TCP · TLS · SASL 접근 경계</strong>
+          </a>
+        </section>
+
+        <section id="broker-entry" class="content-section">
+          <div class="section-heading">
+            <span>02-3</span>
             <div>
               <p>Minimum OS Boundary</p>
               <h2>Client와 Broker 사이에는 TCP와 보안 경계가 있다</h2>
@@ -2386,7 +2632,7 @@ try {
 
         <section id="broker-listener" class="content-section">
           <div class="section-heading">
-            <span>02-3</span>
+            <span>02-4</span>
             <div>
               <p>Kafka Listener · Address &amp; Purpose</p>
               <h2>Listener는 이름이 붙은 Kafka Server의 통신 입구다</h2>
@@ -2548,7 +2794,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="broker-bootstrap" class="content-section">
           <div class="section-heading">
-            <span>02-4</span>
+            <span>02-5</span>
             <div>
               <p>Cluster Discovery</p>
               <h2>Bootstrap Broker는 시작점이고, Metadata는 지도다</h2>
@@ -2589,7 +2835,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="cluster-intro" class="content-section chapter-divider">
           <div class="section-heading">
-            <span>02-5</span>
+            <span>02-6</span>
             <div>
               <p>Track 02 · Kafka Cluster · Data Structure</p>
               <h2>Kafka Cluster는 여러 Broker가 저장·복제하는 구조다</h2>
@@ -2657,7 +2903,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="cluster-summary" class="content-section summary-section">
           <div class="section-heading">
-            <span>02-6</span>
+            <span>02-7</span>
             <div>
               <p>Cluster Summary</p>
               <h2>여러 Broker가 하나의 Cluster가 되는 구조</h2>
@@ -2688,7 +2934,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="cluster-controller" class="content-section">
           <div class="section-heading">
-            <span>02-7</span>
+            <span>02-8</span>
             <div>
               <p>Track 02 · Kafka Cluster · Control Plane</p>
               <h2>Controller는 Record를 중계하지 않고 Cluster 상태를 관리한다</h2>
@@ -2743,7 +2989,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="control-plane-compare" class="content-section chapter-divider control-generation-chapter">
           <div class="section-heading">
-            <span>02-8</span>
+            <span>02-9</span>
             <div>
               <p>Track 02 · Kafka Cluster · Control Plane Map</p>
               <h2>ZooKeeper와 KRaft는 Data Plane이 아니라 Control Plane의 두 세대다</h2>
@@ -2853,7 +3099,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="kraft-intro" class="content-section chapter-divider kraft-chapter kraft-part kraft-part-foundation">
           <div class="section-heading">
-            <span>02-9</span>
+            <span>02-10</span>
             <div>
               <p>Track 02 · Kafka Cluster · Current KRaft Control Plane</p>
               <h2>현재 Kafka Control Plane은 KRaft Controller Quorum이다</h2>
@@ -2939,7 +3185,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="kraft-metadata-log" class="content-section kraft-advanced-section kraft-part kraft-part-state">
           <div class="section-heading">
-            <span>02-10</span>
+            <span>02-11</span>
             <div>
               <p>Track 02 · Kafka Cluster · KRaft Deep Dive · Metadata State Machine</p>
               <h2>Metadata 변경은 Log에 기록되고 과반수 복제 뒤 Commit된다</h2>
@@ -3058,7 +3304,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
 
         <section id="kraft-storage" class="content-section kraft-advanced-section kraft-part kraft-part-storage">
           <div class="section-heading">
-            <span>02-11</span>
+            <span>02-12</span>
             <div>
               <p>Track 02 · Kafka Cluster · KRaft Deep Dive · Identity &amp; Lifecycle</p>
               <h2>Storage Format이 Node Identity와 Cluster Identity를 디스크에 고정한다</h2>
@@ -3175,7 +3421,7 @@ bin/kafka-server-start.sh config/controller.properties</code></pre>
 
         <section id="kraft-operations" class="content-section kraft-advanced-section kraft-part kraft-part-operations">
           <div class="section-heading">
-            <span>02-12</span>
+            <span>02-13</span>
             <div>
               <p>Track 02 · Kafka Cluster · KRaft Deep Dive · Operations</p>
               <h2>Quorum 상태는 Leader·Epoch·High Watermark·Lag으로 진단한다</h2>
@@ -3313,7 +3559,7 @@ CurrentObservers: [...]</code></pre>
 
         <section id="zookeeper-intro" class="content-section chapter-divider zookeeper-chapter legacy-appendix-section">
           <div class="section-heading">
-            <span>02-13</span>
+            <span>02-14</span>
             <div>
               <p>Track 02 · Kafka Cluster · Legacy ZooKeeper Appendix</p>
               <h2>ZooKeeper는 예전 Kafka의 외부 Metadata 조정 서비스다</h2>
@@ -3525,7 +3771,7 @@ CurrentObservers: [...]</code></pre>
 
         <section id="zookeeper-ensemble" class="content-section zookeeper-advanced-section">
           <div class="section-heading">
-            <span>02-14</span>
+            <span>02-15</span>
             <div>
               <p>Track 02 · Kafka Cluster · Ensemble</p>
               <h2>ZooKeeper는 단일 서버가 아니라 Ensemble이다</h2>
@@ -3569,7 +3815,7 @@ CurrentObservers: [...]</code></pre>
 
         <section id="zookeeper-kafka-flow" class="content-section zookeeper-advanced-section">
           <div class="section-heading">
-            <span>02-15</span>
+            <span>02-16</span>
             <div>
               <p>Track 02 · Kafka Cluster · Kafka Integration</p>
               <h2>Kafka Broker가 ZooKeeper와 만나는 순서</h2>
@@ -3608,7 +3854,7 @@ CurrentObservers: [...]</code></pre>
 
         <section id="zookeeper-coordination" class="content-section zookeeper-advanced-section">
           <div class="section-heading">
-            <span>02-16</span>
+            <span>02-17</span>
             <div>
               <p>Track 02 · Kafka Cluster · Coordination</p>
               <h2>“상태를 조정한다”는 말의 실제 의미</h2>
@@ -3702,7 +3948,7 @@ CurrentObservers: [...]</code></pre>
 
         <section id="zookeeper-session" class="content-section zookeeper-advanced-section">
           <div class="section-heading">
-            <span>02-17</span>
+            <span>02-18</span>
             <div>
               <p>Track 02 · Kafka Cluster · Session</p>
               <h2>Session·Ephemeral ZNode·Watch는 어떻게 이어지는가</h2>
@@ -3746,7 +3992,7 @@ CurrentObservers: [...]</code></pre>
 
         <section id="zookeeper-zab" class="content-section zookeeper-advanced-section">
           <div class="section-heading">
-            <span>02-18</span>
+            <span>02-19</span>
             <div>
               <p>Track 02 · Kafka Cluster · ZAB</p>
               <h2>ZAB는 ZooKeeper Metadata를 합의하는 프로토콜이다</h2>
@@ -3786,7 +4032,7 @@ CurrentObservers: [...]</code></pre>
 
         <section id="zookeeper-kraft" class="content-section zookeeper-advanced-section">
           <div class="section-heading">
-            <span>02-19</span>
+            <span>02-20</span>
             <div>
               <p>Track 02 · Kafka Cluster · Legacy Comparison</p>
               <h2>같은 장애에 대입해 ZooKeeper와 KRaft 차이를 검증한다</h2>

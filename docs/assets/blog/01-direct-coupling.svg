@@ -1,0 +1,51 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2 2L10 6L2 10" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .title { font: 700 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .label { font: 700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .sub { font: 500 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .small { font: 600 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #64748b; }
+      .problem { font: 700 19px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #b45309; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="700" fill="#ffffff"/>
+  <text x="600" y="54" text-anchor="middle" class="title">Kafka 도입 전: 생산자와 소비자의 직접 연결</text>
+  <text x="600" y="86" text-anchor="middle" class="sub">이벤트가 필요한 시스템이 늘어날수록 생산자의 연결과 책임이 증가한다.</text>
+
+  <rect x="80" y="285" width="250" height="120" rx="18" fill="#fff7ed" stroke="#f97316" stroke-width="3"/>
+  <text x="205" y="332" text-anchor="middle" class="label">주문 서비스</text>
+  <text x="205" y="366" text-anchor="middle" class="sub">이벤트 생산자</text>
+
+  <g stroke="#475569" stroke-width="3" marker-end="url(#arrow)" stroke-linecap="round">
+    <path d="M330 317 C470 190 585 160 725 160"/>
+    <path d="M330 332 C490 250 595 260 725 260"/>
+    <path d="M330 345 C500 345 590 360 725 360"/>
+    <path d="M330 358 C490 440 595 460 725 460"/>
+    <path d="M330 373 C470 510 585 560 725 560"/>
+  </g>
+
+  <g>
+    <rect x="725" y="120" width="260" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="855" y="169" text-anchor="middle" class="label">결제 서비스</text>
+
+    <rect x="725" y="220" width="260" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="855" y="269" text-anchor="middle" class="label">알림 서비스</text>
+
+    <rect x="725" y="320" width="260" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="855" y="369" text-anchor="middle" class="label">재고 서비스</text>
+
+    <rect x="725" y="420" width="260" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="855" y="469" text-anchor="middle" class="label">분석 시스템</text>
+
+    <rect x="725" y="520" width="260" height="80" rx="16" fill="#f0fdf4" stroke="#16a34a" stroke-width="3"/>
+    <text x="855" y="569" text-anchor="middle" class="label">추천 시스템</text>
+  </g>
+
+  <rect x="390" y="575" width="270" height="92" rx="16" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+  <text x="525" y="610" text-anchor="middle" class="problem">문제</text>
+  <text x="525" y="638" text-anchor="middle" class="small">연결 증가 · 장애 전파 · 재처리 어려움</text>
+</svg>
