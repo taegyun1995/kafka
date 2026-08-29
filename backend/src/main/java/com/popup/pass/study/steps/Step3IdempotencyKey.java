@@ -6,7 +6,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 /**
  * 3단계 · 멱등성 키를 더한다. 클라이언트가 보낸 키가 그대로 requestId가 되고 PK가 된다.
  * 이미 처리한 requestId면 새로 판단하지 않고 저장된 결과를 그대로 돌려준다.
- * 프로덕션 코드({@code ReservationService})는 순정으로 되돌려 두었으므로 0단계 자리에 있다.
+ * 프로덕션 코드({@code ReservationService})에는 세 보호 장치를 모두 반영했다.
+ * 이 클래스는 각 장치가 무엇을 해결하는지 분리해서 보여 주는 학습용 단계다.
  */
 public class Step3IdempotencyKey extends Step2UniqueIndex {
 

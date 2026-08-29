@@ -1,5 +1,5 @@
 -- 모든 시도(확정/거절)를 reservations에 남기고, 업무 시도 키는 DB가 유일하게 보장한다.
--- 확정 예약의 유일성은 애플리케이션의 조회 한 줄에만 기대고 있다.
+-- 확정 예약의 유일성은 애플리케이션의 빠른 조회와 DB 부분 Unique Index가 함께 지킨다.
 alter table if exists reservations drop constraint if exists uk_reservation_round_user;
 drop index if exists uk_reservation_confirmed_round_user;
 
@@ -9,6 +9,12 @@ alter table if exists reservations add column if not exists idempotency_key varc
 update reservations set idempotency_key = request_id where idempotency_key is null;
 alter table if exists reservations alter column idempotency_key set not null;
 create unique index if not exists uk_reservation_idempotency_key on reservations (idempotency_key);
+
+-- 같은 회차에서 같은 사용자의 확정 예약은 하나만 허용한다.
+-- 거절 기록은 여러 번 남을 수 있어 CONFIRMED에만 조건을 건다.
+create unique index if not exists uk_reservation_confirmed_round_user
+    on reservations (round_id, user_id)
+    where status = 'CONFIRMED';
 
 -- 예약 상태 목록은 애플리케이션 enum과 같아야 한다.
 -- Hibernate는 테이블을 처음 만들 때만 check 제약을 만들고, ddl-auto=update는 이미 있는 제약을 고치지 않는다.

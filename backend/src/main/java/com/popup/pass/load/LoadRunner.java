@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>고르는 것은 동시 요청 수 하나다. 정원은 넉넉히 잡아 매진이 섞이지 않게 하고,
  * 사용자도 전원 다르게 두어 중복 거절이 섞이지 않게 한다. 남는 변수는 시간뿐이다.
  *
- * <p>부하는 두 곳에 걸 수 있다 — 순정 프로덕션 경로({@link ReservationService})와, 보호 장치를 켠 학습용 단계.
+ * <p>부하는 두 곳에 걸 수 있다 — 동기 프로덕션 경로({@link ReservationService})와, 보호 장치를 켠 학습용 단계.
  * 후자가 있어야 <em>"다 고치면 빨라지는가"</em>를 주장이 아니라 관측으로 답할 수 있다.
  */
 public class LoadRunner {
@@ -70,7 +70,7 @@ public class LoadRunner {
         return dataSource instanceof HikariDataSource hikari ? hikari.getMaximumPoolSize() : -1;
     }
 
-    /** 순정 프로덕션 경로에 부하를 건다. */
+    /** 동기 프로덕션 경로에 부하를 건다. */
     public LoadRunResult run(int concurrency, int clientPatienceMillis) {
         return runOn(new ProductionTarget(), concurrency, clientPatienceMillis);
     }
@@ -284,7 +284,7 @@ public class LoadRunner {
         LoadRunResult.Ledger ledger(String roundId, int capacity);
     }
 
-    /** 동기 프로덕션 경로. 멱등성은 적용했지만 정원 동시성 보호 장치는 아직 없다. */
+    /** 동기 프로덕션 경로. DB 원자적 차감·부분 Unique Index·멱등성 키를 모두 적용한다. */
     private final class ProductionTarget implements Target {
 
         @Override
@@ -294,12 +294,12 @@ public class LoadRunner {
 
         @Override
         public String label() {
-            return "동기 · 멱등성 적용 프로덕션 경로";
+            return "동기 · DB 동시성 보호 프로덕션 경로";
         }
 
         @Override
         public String addedGuard() {
-            return "Idempotency-Key";
+            return "원자적 차감 + 확정 부분 Unique Index + Idempotency-Key";
         }
 
         @Override

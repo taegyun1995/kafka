@@ -17,7 +17,7 @@ Kafka 내용은 Markdown 문서와 중복 관리하지 않습니다. 내용 수�
 - [PopupPass 기초 아키텍처](site/popup-pass-architecture.html) — 지금 코드의 구성 요소 · 요청 흐름 · 테이블
 - [PopupPass 보호 장치 실행](site/popup-pass-guards.html) — 선착순을 무엇이 지키는가. 실제 서버에 동시 요청을 일으킨다
 - [PopupPass 부하 관측](site/popup-pass-load.html) — 동기 처리가 어디서 느려지는가. 처리량의 천장, 자라는 응답 지연, 그리고 보호 장치를 다 켜도 남는 것
-- [PopupPass 흐름 시연](site/popup-pass-demo.html) — 순정 구현을 실제로 호출한다. 한 건씩 보낼 때와 겹쳐 보낼 때의 차이
+- [PopupPass 흐름 시연](site/popup-pass-demo.html) — 동기 구현을 실제로 호출한다. 한 건씩 보낼 때와 겹쳐 보낼 때의 차이
 - [PopupPass 단일 서버 MVP 실행환경](backend/README.md) — 실행 명령과 API 사용법
 
 Kafka 이론과 실습 프로젝트 설계는 HTML로 관리합니다.

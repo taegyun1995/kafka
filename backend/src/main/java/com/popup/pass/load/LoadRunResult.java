@@ -41,10 +41,7 @@ public record LoadRunResult(
         }
     }
 
-    /**
-     * 회차 장부. 이 실험은 지연을 재는 것이지만 코드는 여전히 순정이라
-     * <strong>확정 건수와 실제로 빠진 자리가 어긋난다.</strong> 정원을 넉넉히 잡아 매진으로 드러나지 않을 뿐이다.
-     */
+    /** 회차 장부. 확정 건수와 실제로 빠진 자리가 어긋나는지 확인해 정합성을 함께 본다. */
     public record Ledger(long confirmed, int seatsTaken, int lostDecrements) {
     }
 

@@ -260,9 +260,9 @@
           </table>
         </div>
 
-        <div class="architecture-later"><strong>결론:</strong> 기본 동기 흐름은 끝났고, 이제 동시성 보호 장치를 실제 경로에 반영하는 중이다. 위 다섯 단계가 API만으로 끝까지 돌고, Testcontainers 테스트가 이를 지키는 상태에서 Kafka로 넘어간다. 이 표에 없는 기능은 만들지 않는다(<a href="#out-of-scope">06 참고</a>).</div>
+        <div class="architecture-later"><strong>결론:</strong> 기본 동기 흐름과 동시성 보호를 실제 경로에 반영했다. 위 다섯 단계가 API만으로 끝까지 돌고, Testcontainers 테스트가 이를 지키는 상태에서 Kafka로 넘어간다. 이 표에 없는 기능은 만들지 않는다(<a href="#out-of-scope">06 참고</a>).</div>
 
-        <div class="architecture-later"><strong>보호 장치를 하나씩 켜 본다:</strong> 학습용 코드는 0단계(보호 없음)부터 <strong>원자적 차감 → 부분 유니크 인덱스 → 멱등성 키</strong> 순으로 무엇이 깨지는지 고정한다. 실제 프로덕션 경로에는 먼저 멱등성 키를 반영했고, 원자적 차감과 부분 유니크 인덱스는 다음 단계다. 같은 것을 <a href="./popup-pass-guards.html">실행 화면</a>에서 버튼으로 눌러 볼 수 있다. 요점은 2단계다 &mdash; 그 단계가 안전해 보였던 것은 예약이라는 업무의 성질 때문이 아니라 <strong>1인 1매 규칙이 멱등성을 대신 제공하고 있었기 때문</strong>이고, 규칙을 걷어내면 재시도가 그대로 두 번째 자리를 먹는다. Kafka를 붙이면 at-least-once 재전달이 더해지므로 멱등성 키가 계속 필요하다.</div>
+        <div class="architecture-later"><strong>보호 장치를 하나씩 켜 본다:</strong> 학습용 코드는 0단계(보호 없음)부터 <strong>원자적 차감 → 부분 유니크 인덱스 → 멱등성 키</strong> 순으로 무엇이 깨지는지 고정한다. 실제 프로덕션 경로에는 세 장치를 모두 반영했고, 같은 것을 <a href="./popup-pass-guards.html">실행 화면</a>에서 버튼으로 눌러 볼 수 있다. 요점은 2단계다 &mdash; 그 단계가 안전해 보였던 것은 예약이라는 업무의 성질 때문이 아니라 <strong>1인 1매 규칙이 멱등성을 대신 제공하고 있었기 때문</strong>이고, 규칙을 걷어내면 재시도가 그대로 두 번째 자리를 먹는다. Kafka를 붙이면 at-least-once 재전달이 더해지므로 멱등성 키가 계속 필요하다.</div>
 
         <div class="architecture-later"><strong>마감을 붙이며 드러난 것:</strong> 마감된 회차의 거절을 매진과 구분하려고 <code>REJECTED_ROUND_CLOSED</code>를 더했는데, 이미 만들어진 테이블에는 옛 상태 목록이 담긴 <code>check</code> 제약이 남아 있어 저장이 막혔다. Hibernate는 <strong>테이블을 처음 만들 때만</strong> 이 제약을 만들고 <code>ddl-auto: update</code>는 기존 제약을 고치지 않는다. 그래서 상태 목록은 <code>schema.sql</code>에서 다시 만든다 &mdash; 2단계에서 <code>PENDING</code>을 더할 때 같은 자리를 다시 지나게 된다.</div>
       </section>
@@ -280,14 +280,14 @@
         <div class="architecture-card-grid">
           <article class="architecture-card">
             <h3>1단계 · 동기 처리</h3>
-            <span class="card-role">진행 중</span>
+            <span class="card-role">완료</span>
             <dl>
               <dt>흐름</dt>
               <dd>HTTP → ReservationService → PostgreSQL</dd>
               <dt>특징</dt>
               <dd>HTTP 응답 시점에 이미 결과가 확정되어 있다</dd>
               <dt>확인된 것</dt>
-              <dd>기본 시나리오와 멱등성 재시도 테스트 통과 · 동시성 보호는 진행 중</dd>
+              <dd>기본 시나리오·멱등성 재시도·동시성 보호 테스트 통과</dd>
             </dl>
           </article>
           <article class="architecture-card service">
@@ -315,7 +315,7 @@
               <tr><td>응답 시점</td><td>업무 처리가 끝난 뒤</td><td>요청을 받자마자</td></tr>
               <tr><td>결과 확인</td><td>응답 본문에 이미 있음</td><td>조회 API로 다시 확인</td></tr>
               <tr><td>실패 처리</td><td>요청이 그대로 실패</td><td>재시도 · DLT로 나중에 처리</td></tr>
-              <tr><td>정원 정확성</td><td>아직 지키는 장치가 없다</td><td>같은 회차를 같은 Partition으로 보내 순서를 맞추는 설계가 추가된다</td></tr>
+              <tr><td>정원 정확성</td><td>DB 원자적 차감·부분 유니크 인덱스로 보호</td><td>같은 회차를 같은 Partition으로 보내 순서를 맞추는 설계가 추가된다</td></tr>
               <tr><td>확장 단위</td><td>API와 처리가 한 덩어리</td><td>API와 Worker를 따로 늘림</td></tr>
             </tbody>
           </table>

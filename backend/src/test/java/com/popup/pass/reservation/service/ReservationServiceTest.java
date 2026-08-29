@@ -9,10 +9,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,8 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * 단일 서버 예약의 기본 규칙과 멱등성 계약을 확인한다.
  *
- * <p>서로 다른 사용자의 동시 정원 경쟁은 원자적 차감 단계에서 다룬다. 여기서는 같은 키의
- * 재시도와 같은 키가 동시에 들어오는 경우를 멱등성의 기준으로 고정한다.
+ * <p>서로 다른 사용자의 동시 정원 경쟁은 DB 원자적 차감으로, 같은 사용자의 동시 중복은
+ * 확정 예약 부분 Unique Index로 막히는지 함께 확인한다.
  */
 @DisplayName("선착순 예약의 단일 서버 처리")
 class ReservationServiceTest extends PostgresBackedTest {
@@ -201,6 +204,75 @@ class ReservationServiceTest extends PostgresBackedTest {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test
+    @DisplayName("서로 다른 사용자가 동시에 요청해도 정원을 넘겨 확정하지 않는다")
+    void doesNotOversellUnderConcurrentRequests() throws Exception {
+        var roundId = newRound(2);
+        var results = runConcurrently(
+                roundId,
+                List.of("user-1", "user-2", "user-3", "user-4", "user-5"),
+                List.of("key-oversell-1", "key-oversell-2", "key-oversell-3", "key-oversell-4", "key-oversell-5"));
+
+        assertThat(results.stream().filter(this::isConfirmed).count()).isEqualTo(2);
+        assertThat(results.stream().filter(this::isSoldOut).count()).isEqualTo(3);
+        assertThat(reservationCount(roundId)).isEqualTo(5);
+        assertThat(remainingCount(roundId)).isZero();
+    }
+
+    @Test
+    @DisplayName("같은 사용자가 서로 다른 키로 동시에 요청해도 한 자리만 확정된다")
+    void preventsConcurrentDoubleBooking() throws Exception {
+        var roundId = newRound(2);
+        var results = runConcurrently(
+                roundId,
+                List.of("user-1", "user-1"),
+                List.of("key-double-booking-1", "key-double-booking-2"));
+
+        assertThat(results.stream().filter(this::isConfirmed).count()).isOne();
+        assertThat(results.stream().filter(reservation ->
+                reservation.getStatus() == ReservationStatus.REJECTED_DUPLICATE).count()).isOne();
+        assertThat(reservationCount(roundId)).isEqualTo(2);
+        assertThat(remainingCount(roundId)).isEqualTo(1);
+    }
+
+    private List<Reservation> runConcurrently(String roundId, List<String> userIds, List<String> keys)
+            throws Exception {
+        var pool = Executors.newFixedThreadPool(userIds.size());
+        var ready = new CountDownLatch(userIds.size());
+        var start = new CountDownLatch(1);
+        try {
+            var futures = new ArrayList<Future<Reservation>>();
+            for (int i = 0; i < userIds.size(); i++) {
+                String userId = userIds.get(i);
+                String key = keys.get(i);
+                futures.add(pool.submit(() -> {
+                    ready.countDown();
+                    start.await(5, TimeUnit.SECONDS);
+                    return reservationService.reserve(roundId, userId, key);
+                }));
+            }
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            var results = new ArrayList<Reservation>();
+            for (var future : futures) {
+                results.add(future.get(10, TimeUnit.SECONDS));
+            }
+            return results;
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private boolean isConfirmed(Reservation reservation) {
+        return reservation.getStatus() == ReservationStatus.CONFIRMED;
+    }
+
+    private boolean isSoldOut(Reservation reservation) {
+        return reservation.getStatus() == ReservationStatus.REJECTED_SOLD_OUT;
     }
 
     private String newRound(int capacity) {

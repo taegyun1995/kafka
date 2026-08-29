@@ -59,11 +59,6 @@ public class ReservationRound {
         return status;
     }
 
-    /** 자리 하나를 뺀다. 남은 자리가 있는지는 부르는 쪽이 먼저 확인한다. */
-    public void takeOne() {
-        this.remainingCount = this.remainingCount - 1;
-    }
-
     /** 마감은 설정 연산이라 이미 닫혀 있어도 결과가 같다. 되돌리는 기능은 두지 않는다. */
     public void close() {
         this.status = RoundStatus.CLOSED;

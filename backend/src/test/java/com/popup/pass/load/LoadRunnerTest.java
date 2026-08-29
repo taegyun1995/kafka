@@ -96,13 +96,13 @@ class LoadRunnerTest extends PostgresBackedTest {
     }
 
     @Test
-    @DisplayName("정원이 넉넉해도 순정 코드라 차감은 유실된다 — 매진으로 드러나지 않을 뿐이다")
-    void 차감이_유실된다() {
+    @DisplayName("정원이 넉넉하면 동시 요청에도 확정과 차감이 일치한다")
+    void 차감이_유실되지_않는다() {
         var ledger = runner.run(CROWDED, LoadRunner.DEFAULT_CLIENT_PATIENCE_MILLIS).ledger();
 
         assertThat(ledger.confirmed()).isEqualTo(CROWDED);
-        assertThat(ledger.seatsTaken()).isLessThan(CROWDED);
-        assertThat(ledger.lostDecrements()).isEqualTo(CROWDED - ledger.seatsTaken());
+        assertThat(ledger.seatsTaken()).isEqualTo(CROWDED);
+        assertThat(ledger.lostDecrements()).isZero();
     }
 
     @Test
