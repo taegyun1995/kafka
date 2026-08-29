@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -52,12 +53,9 @@ public class ReservationController {
     @PostMapping("/reservation-rounds/{roundId}/reservations")
     public ResponseEntity<ReservationResponse> requestReservation(
             @PathVariable String roundId,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody CreateReservationRequest request) {
-        if (!reservationService.roundExists(roundId)) {
-            throw roundNotFound(roundId);
-        }
-
-        var reservation = reservationService.reserve(roundId, request.userId());
+        var reservation = reservationService.reserve(roundId, request.userId(), idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED).body(ReservationResponse.from(reservation));
     }
 

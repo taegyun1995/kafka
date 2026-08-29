@@ -138,7 +138,7 @@
           </a>
           <a href="./popup-pass-demo.html">
             <b>흐름 시연</b>
-            <span>순정 구현을 실제로 호출한다 — 한 건씩 보낼 때와 겹쳐 보낼 때의 차이</span>
+            <span>동기 구현을 실제로 호출한다 — 한 건씩 보낼 때와 겹쳐 보낼 때의 차이</span>
           </a>
           <a href="../backend/README.md">
             <b>backend/README.md</b>
@@ -160,7 +160,7 @@
         <p>Kafka를 처음부터 넣으면 Topic·Partition·Consumer Group 설정을 <strong>외우게</strong> 된다. 어떤 문제를 푸는 장치인지 겪어본 적이 없으니 설정값의 의미도 남지 않는다.</p>
         <p>그래서 순서를 뒤집는다. 먼저 하나의 서버가 HTTP 요청 안에서 예약을 끝까지 처리하게 만든다. 이 구조가 <strong>정확히 무엇을 못 하는지</strong> 손에 잡힌 뒤에 Kafka를 넣으면, 옵션 하나하나가 앞서 겪은 문제에 대응된다.</p>
 
-        <div class="architecture-later"><strong>이번 기획에서 정한 것:</strong> 전환 시점을 부하 수치로 정하지 않는다. 목표가 학습이므로 <strong>1단계 기능이 완성되면 넘어간다.</strong> 대신 &ldquo;완성&rdquo;의 뜻을 아래 03에서 못 박아, 기능이 무한정 늘어나는 것을 막는다.<br><br>다만 <strong>왜 큐가 필요한지는 숫자로 한 번 본다.</strong> 성능을 끌어올리려는 것이 아니라, 동기 처리가 정확히 무엇을 못 하는지 확인하기 위해서다. 초과 예약은 DB 제약 한 줄로 고쳐지지만, 커넥션 하나가 한 번에 한 건씩만 처리한다는 사실은 그 뒤에도 남는다. 보호 장치를 세 겹 다 켜고 같은 부하를 걸어 보면 <strong>차감 유실은 285칸에서 0칸이 되는데 p95 지연은 오히려 40% 늘어난다</strong> &mdash; <a href="./popup-pass-load.html">부하 관측</a>.</div>
+        <div class="architecture-later"><strong>이번 기획에서 정한 것:</strong> 전환 시점을 부하 수치로 정하지 않는다. 목표가 학습이므로 <strong>동기 예약의 업무 규칙과 재시도 안전성이 완성되면 넘어간다.</strong> 대신 &ldquo;완성&rdquo;의 뜻을 아래 03에서 못 박아, 기능이 무한정 늘어나는 것을 막는다.<br><br>다만 <strong>왜 큐가 필요한지는 숫자로 한 번 본다.</strong> 성능을 끌어올리려는 것이 아니라, 동기 처리가 정확히 무엇을 못 하는지 확인하기 위해서다. 초과 예약은 DB 제약 한 줄로 고쳐지지만, 커넥션 하나가 한 번에 한 건씩만 처리한다는 사실은 그 뒤에도 남는다. 보호 장치를 세 겹 다 켜고 같은 부하를 걸어 보면 <strong>차감 유실은 285칸에서 0칸이 되는데 p95 지연은 오히려 40% 늘어난다</strong> &mdash; <a href="./popup-pass-load.html">부하 관측</a>.</div>
       </section>
 
       <section class="architecture-section" id="two-tracks">
@@ -260,9 +260,9 @@
           </table>
         </div>
 
-        <div class="architecture-later"><strong>결론:</strong> 두 기능이 추가되어 <strong>1단계는 끝났다</strong>. 위 다섯 단계가 API만으로 끝까지 돌고, Testcontainers 테스트 11개가 이를 지킨다. 이 표에 없는 기능은 만들지 않는다(<a href="#out-of-scope">06 참고</a>).</div>
+        <div class="architecture-later"><strong>결론:</strong> 기본 동기 흐름은 끝났고, 이제 동시성 보호 장치를 실제 경로에 반영하는 중이다. 위 다섯 단계가 API만으로 끝까지 돌고, Testcontainers 테스트가 이를 지키는 상태에서 Kafka로 넘어간다. 이 표에 없는 기능은 만들지 않는다(<a href="#out-of-scope">06 참고</a>).</div>
 
-        <div class="architecture-later"><strong>보호 장치를 하나씩 켜 본다:</strong> 프로덕션 코드는 지금 <strong>보호 장치가 하나도 없는 순정</strong>이다. 무엇을 더하면 무엇이 막히는지 겪어 본 뒤에 하나씩 되가져오기 위해서다. 0단계(보호 없음)부터 <strong>원자적 차감 → 부분 유니크 인덱스 → 멱등성 키</strong> 순으로 하나씩 더하며 그때마다 무엇이 깨지는지 고정한 테스트를 두었고, 같은 것을 <a href="./popup-pass-guards.html">실행 화면</a>에서 버튼으로 눌러 볼 수 있다. 요점은 2단계다 &mdash; 그 단계가 안전해 보였던 것은 예약이라는 업무의 성질 때문이 아니라 <strong>1인 1매 규칙이 멱등성을 대신 제공하고 있었기 때문</strong>이고, 규칙을 걷어내면 재시도가 그대로 두 번째 자리를 먹는다. 2단계에서 Kafka의 at-least-once 재전달이 더해지면 같은 자리가 다시 문제가 된다.</div>
+        <div class="architecture-later"><strong>보호 장치를 하나씩 켜 본다:</strong> 학습용 코드는 0단계(보호 없음)부터 <strong>원자적 차감 → 부분 유니크 인덱스 → 멱등성 키</strong> 순으로 무엇이 깨지는지 고정한다. 실제 프로덕션 경로에는 먼저 멱등성 키를 반영했고, 원자적 차감과 부분 유니크 인덱스는 다음 단계다. 같은 것을 <a href="./popup-pass-guards.html">실행 화면</a>에서 버튼으로 눌러 볼 수 있다. 요점은 2단계다 &mdash; 그 단계가 안전해 보였던 것은 예약이라는 업무의 성질 때문이 아니라 <strong>1인 1매 규칙이 멱등성을 대신 제공하고 있었기 때문</strong>이고, 규칙을 걷어내면 재시도가 그대로 두 번째 자리를 먹는다. Kafka를 붙이면 at-least-once 재전달이 더해지므로 멱등성 키가 계속 필요하다.</div>
 
         <div class="architecture-later"><strong>마감을 붙이며 드러난 것:</strong> 마감된 회차의 거절을 매진과 구분하려고 <code>REJECTED_ROUND_CLOSED</code>를 더했는데, 이미 만들어진 테이블에는 옛 상태 목록이 담긴 <code>check</code> 제약이 남아 있어 저장이 막혔다. Hibernate는 <strong>테이블을 처음 만들 때만</strong> 이 제약을 만들고 <code>ddl-auto: update</code>는 기존 제약을 고치지 않는다. 그래서 상태 목록은 <code>schema.sql</code>에서 다시 만든다 &mdash; 2단계에서 <code>PENDING</code>을 더할 때 같은 자리를 다시 지나게 된다.</div>
       </section>
@@ -280,14 +280,14 @@
         <div class="architecture-card-grid">
           <article class="architecture-card">
             <h3>1단계 · 동기 처리</h3>
-            <span class="card-role">완료</span>
+            <span class="card-role">진행 중</span>
             <dl>
               <dt>흐름</dt>
               <dd>HTTP → ReservationService → PostgreSQL</dd>
               <dt>특징</dt>
               <dd>HTTP 응답 시점에 이미 결과가 확정되어 있다</dd>
               <dt>확인된 것</dt>
-              <dd>다섯 단계 시나리오가 순차로 완주 · 업무 규칙 테스트 9개 통과</dd>
+              <dd>기본 시나리오와 멱등성 재시도 테스트 통과 · 동시성 보호는 진행 중</dd>
             </dl>
           </article>
           <article class="architecture-card service">
@@ -304,7 +304,7 @@
           </article>
         </div>
 
-        <p class="architecture-note">2단계에서 가장 먼저 부딪히는 것은 <strong><code>PENDING</code>이 지금 없다</strong>는 점이다. 동기 처리에서는 결과가 항상 즉시 확정되므로 &ldquo;아직 처리되지 않음&rdquo;을 표현할 필요가 없었다. 비동기가 되는 순간 이 상태가 있어야 결과 조회 API가 의미를 갖는다. 그리고 <strong>재시도 안전성이 아직 없다</strong> — 지금은 <code>requestId</code>를 서버가 만들므로 같은 업무 요청을 다시 보내도 서버가 알아채지 못한다. Kafka의 at-least-once 재전달이 더해지면 이것이 먼저 문제가 된다.</p>
+        <p class="architecture-note">2단계에서 가장 먼저 부딪히는 것은 <strong><code>PENDING</code>이 지금 없다</strong>는 점이다. 동기 처리에서는 결과가 항상 즉시 확정되므로 &ldquo;아직 처리되지 않음&rdquo;을 표현할 필요가 없었다. 비동기가 되는 순간 이 상태가 있어야 결과 조회 API가 의미를 갖는다. 동기 단계에서 만든 <code>Idempotency-Key</code>는 Kafka 메시지에도 그대로 실어야 한다. Kafka의 at-least-once 재전달이 같은 업무 요청을 다시 전달해도 Worker가 처음 결과를 재사용할 수 있어야 한다.</p>
 
         <div class="plan-table">
           <table>

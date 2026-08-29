@@ -8,5 +8,5 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 COPY --from=build /workspace/build/libs/*.jar app.jar
-EXPOSE 18080 18081
+EXPOSE 18090
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

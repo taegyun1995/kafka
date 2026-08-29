@@ -663,6 +663,7 @@
         <button class="guard-button" id="open-round" type="button" disabled>회차 열기</button>
         <button class="guard-button secondary" id="reserve-one" type="button" disabled>한 명 예약</button>
         <button class="guard-button secondary" id="reserve-same" type="button" disabled>같은 사람 다시</button>
+        <button class="guard-button secondary" id="reserve-retry" type="button" disabled>같은 요청 재시도</button>
         <span class="demo-field">
           <label for="attempts">동시 인원</label>
           <input id="attempts" type="number" min="2" max="50" step="1" value="5">
@@ -730,6 +731,7 @@
           <h2 id="demo-meta-title">현재 요청</h2>
           <dl class="demo-meta">
             <dt>requestId</dt><dd id="meta-request-id"><code>—</code></dd>
+            <dt>Idempotency-Key</dt><dd id="meta-idempotency-key"><code>—</code></dd>
             <dt>roundId</dt><dd id="meta-round-id"><code>—</code></dd>
             <dt>userId</dt><dd id="meta-user-id"><code>—</code></dd>
             <dt>결과</dt><dd id="meta-result"><code>—</code></dd>
@@ -745,10 +747,11 @@
       </div>
 
       <section class="demo-panel" style="margin-top: 14px;" aria-labelledby="demo-contract-title">
-        <h2 id="demo-contract-title">CreateReservationRequest</h2>
+        <h2 id="demo-contract-title">예약 요청 본문</h2>
         <pre id="demo-contract" class="demo-contract"><code>{
   "userId": "—"
 }</code></pre>
+        <p class="demo-history-hint">본문과 별도로 <code>Idempotency-Key</code> 헤더를 보낸다. 같은 요청을 다시 보내려면 같은 키를 사용한다.</p>
       </section>
 
       <p class="demo-note"><strong>동시 인원을 6보다 크게 넣어도 한 번에 6건까지만 나간다.</strong> 브라우저가 같은 서버로 여는 HTTP/1.1 연결을 6개로 제한하기 때문이다. 그보다 큰 수는 6개씩 나뉘어 전송되므로, 뒤 묶음은 앞 묶음이 저장된 뒤에 읽는다. 서버 안에서 진짜 동시에 돌리는 것은 <a href="./popup-pass-guards.html">보호 장치 실행 화면</a> 쪽이다.</p>
@@ -792,6 +795,7 @@
         open: document.getElementById('open-round'),
         one: document.getElementById('reserve-one'),
         same: document.getElementById('reserve-same'),
+        retry: document.getElementById('reserve-retry'),
         many: document.getElementById('reserve-many'),
         close: document.getElementById('close-round')
       };
@@ -800,6 +804,8 @@
       let roundId = null;
       let userSeq = 0;
       let lastRemaining = null;
+      let lastReservationKey = null;
+      let lastReservationUser = null;
       let busy = false;
 
       try {
@@ -907,11 +913,15 @@
         verdictLine.hidden = false;
       }
 
-      async function call(method, path, body) {
+      async function call(method, path, body, extraHeaders) {
         const started = performance.now();
+        const headers = Object.assign(
+          body ? { 'Content-Type': 'application/json' } : {},
+          extraHeaders || {}
+        );
         const response = await fetch(baseUrl() + path, {
           method,
-          headers: body ? { 'Content-Type': 'application/json' } : undefined,
+          headers: Object.keys(headers).length ? headers : undefined,
           body: body ? JSON.stringify(body) : undefined
         });
         const text = await response.text();
@@ -925,6 +935,7 @@
         actions.open.disabled = on;
         actions.one.disabled = on || !roundId;
         actions.same.disabled = on || !roundId || userSeq === 0;
+        actions.retry.disabled = on || !roundId || !lastReservationKey;
         actions.many.disabled = on || !roundId;
         actions.close.disabled = on || !roundId;
         capacityInput.disabled = on;
@@ -1000,9 +1011,12 @@
         log.innerHTML = '';
         const seats = capacity();
         const result = await call('POST', '/reservation-rounds', { id: roundId, name: 'PopupPass 시연', capacity: seats });
+        lastReservationKey = null;
+        lastReservationUser = null;
         addLog('POST /reservation-rounds', 'HTTP ' + result.statusCode + ' · 정원 ' + seats, 'done');
         setText('meta-round-id', roundId);
         setText('meta-request-id', '—');
+        setText('meta-idempotency-key', '—');
         setText('meta-user-id', '—');
         setText('meta-result', '—');
         showContract('회차 생성 응답', result.data);
@@ -1029,16 +1043,29 @@
         return reserveAs('user-' + userSeq);
       }
 
-      async function reserveAs(userId) {
+      /** 같은 키로 다시 보내 서버가 저장된 결과를 재생하는지 확인한다. */
+      async function reserveRetry() {
+        if (!lastReservationKey || !lastReservationUser) { return; }
+        return reserveAs(lastReservationUser, lastReservationKey);
+      }
+
+      async function reserveAs(userId, suppliedKey) {
+        const isRetry = suppliedKey !== undefined;
+        const idempotencyKey = suppliedKey || crypto.randomUUID();
+        lastReservationKey = idempotencyKey;
+        lastReservationUser = userId;
         resetStages();
         showVerdict(null);
         setText('meta-user-id', userId);
+        setText('meta-idempotency-key', idempotencyKey);
 
         markStage('api', '요청 전송…', 'active');
-        const result = await call('POST', '/reservation-rounds/' + roundId + '/reservations', { userId });
+        const result = await call('POST', '/reservation-rounds/' + roundId + '/reservations', { userId }, {
+          'Idempotency-Key': idempotencyKey
+        });
         markStage('api', 'HTTP ' + result.statusCode + ' · ' + result.elapsed + 'ms', 'complete');
         markConnector('api');
-        addLog('POST …/reservations', userId + ' · HTTP ' + result.statusCode, 'done');
+        addLog('POST …/reservations', userId + ' · key ' + idempotencyKey.slice(0, 12) + '… · HTTP ' + result.statusCode, 'done');
 
         const reservation = result.data || {};
         const outcome = reservation.status || '—';
@@ -1064,7 +1091,10 @@
         renderRound(round.data);
         showContract('예약 응답', reservation);
 
-        if (rejected) {
+        if (isRetry) {
+          showVerdict('OK', '<strong>같은 Idempotency-Key의 결과를 다시 받았다.</strong> ' +
+            '<code>requestId</code>와 상태가 처음 요청과 같고, 자리는 한 번만 차감된다.');
+        } else if (rejected) {
           showVerdict('PARTIAL', '<strong>' + escapeHtml(userId) + ' 는 자리를 받지 못했다.</strong> ' +
             (REJECTION_NOTES[outcome] || '') +
             ' <strong>거절도 <code>reservations</code>에 행으로 남는다</strong> — 모든 시도를 기록하기 때문이다. ' +
@@ -1087,9 +1117,13 @@
         const users = same
           ? Array.from({ length: count }, () => 'user-1')
           : Array.from({ length: count }, (ignored, index) => 'user-' + (index + 1));
+        lastReservationKey = null;
+        lastReservationUser = null;
         const started = performance.now();
         const results = await Promise.all(users.map((userId) =>
-          call('POST', '/reservation-rounds/' + roundId + '/reservations', { userId })));
+          call('POST', '/reservation-rounds/' + roundId + '/reservations', { userId }, {
+            'Idempotency-Key': crypto.randomUUID()
+          })));
         const elapsed = Math.round(performance.now() - started);
         userSeq = users.length;
 
@@ -1105,6 +1139,7 @@
           ? 'user-1 × ' + count
           : (count > 6 ? users[0] + ' … ' + users[count - 1] : users.join(', ')));
         setText('meta-request-id', count + '건');
+        setText('meta-idempotency-key', '각 요청마다 다름');
         setText('meta-result', '확정 ' + confirmed + '건');
 
         const round = await call('GET', '/reservation-rounds/' + roundId);
@@ -1199,6 +1234,7 @@
       actions.open.addEventListener('click', () => guarded(openRound));
       actions.one.addEventListener('click', () => guarded(reserveOne));
       actions.same.addEventListener('click', () => guarded(reserveSame));
+      actions.retry.addEventListener('click', () => guarded(reserveRetry));
       actions.many.addEventListener('click', () => guarded(reserveMany));
       actions.close.addEventListener('click', () => guarded(closeRound));
 

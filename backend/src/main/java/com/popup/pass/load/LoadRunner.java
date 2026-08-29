@@ -284,7 +284,7 @@ public class LoadRunner {
         LoadRunResult.Ledger ledger(String roundId, int capacity);
     }
 
-    /** 순정 프로덕션 경로. 지금 {@code ReservationService}에는 보호 장치가 하나도 없다. */
+    /** 동기 프로덕션 경로. 멱등성은 적용했지만 정원 동시성 보호 장치는 아직 없다. */
     private final class ProductionTarget implements Target {
 
         @Override
@@ -294,12 +294,12 @@ public class LoadRunner {
 
         @Override
         public String label() {
-            return "순정 · 프로덕션 경로";
+            return "동기 · 멱등성 적용 프로덕션 경로";
         }
 
         @Override
         public String addedGuard() {
-            return "없음";
+            return "Idempotency-Key";
         }
 
         @Override
@@ -308,7 +308,7 @@ public class LoadRunner {
             String warmupRound = "load-warmup-" + System.currentTimeMillis();
             reservations.createRound(warmupRound, "부하 관측 워밍업", WARMUP_REQUESTS);
             for (int i = 0; i < WARMUP_REQUESTS; i++) {
-                reservations.reserve(warmupRound, "warmup-user-" + i);
+                reservations.reserve(warmupRound, "warmup-user-" + i, UUID.randomUUID().toString());
             }
         }
 
@@ -321,7 +321,8 @@ public class LoadRunner {
 
         @Override
         public void call(String roundId, String userId) {
-            reservations.reserve(roundId, userId);
+            // 부하에서는 서로 다른 업무 요청이므로 키도 매번 새로 만든다.
+            reservations.reserve(roundId, userId, UUID.randomUUID().toString());
         }
 
         @Override

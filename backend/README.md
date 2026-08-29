@@ -8,7 +8,7 @@ HTTP 요청
   → PostgreSQL
 ```
 
-예약 규칙과 데이터 변경은 `ReservationService`에 모으고, HTTP Controller는 요청·응답 변환만 담당한다. 지금은 **가장 단순한 방법**으로만 처리한다 — 읽고, 판단하고, 쓴다. 동시 요청을 대비한 장치는 없다(**4. 지금 없는 것**). 나중에 처리 시간이 길어지거나 재시도·버퍼링·독립 확장이 필요해지면 이 업무 경계를 별도 Worker와 메시지 브로커로 옮긴다.
+예약 규칙과 데이터 변경은 `ReservationService`에 모으고, HTTP Controller는 요청·응답 변환만 담당한다. 지금은 **가장 단순한 방법**으로 처리하되, 같은 업무 요청의 재시도는 `Idempotency-Key`로 한 번만 반영한다. 정원 차감과 1인 1매를 위한 동시성 장치는 아직 없다(**4. 지금 없는 것**). 나중에 처리 시간이 길어지거나 버퍼링·독립 확장이 필요해지면 이 업무 경계를 별도 Worker와 메시지 브로커로 옮긴다.
 
 ## 1. PostgreSQL 실행
 
@@ -61,6 +61,7 @@ curl http://localhost:18090/reservation-rounds/round-1
 ```bash
 curl -X POST http://localhost:18090/reservation-rounds/round-1/reservations \
   -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: round-1-user-1-attempt-1' \
   -d '{"userId":"user-1"}'
 ```
 
@@ -82,7 +83,9 @@ curl -X POST http://localhost:18090/reservation-rounds/round-1/reservations \
 curl http://localhost:18090/reservations/{requestId}
 ```
 
-이미 **확정된** 예약이 있는 `userId`가 다시 보내면 `REJECTED_DUPLICATE`, 정원을 초과하면 `REJECTED_SOLD_OUT`이 저장된다. 매진으로 거절된 사용자는 자리가 생기면 다시 예약할 수 있다. 중복 판정은 확정된 예약이 있는지 **애플리케이션이 조회 한 줄로** 확인한다. DB에는 이를 막는 제약이 없다.
+예약 요청의 `Idempotency-Key`는 클라이언트가 한 번의 업무 시도에 붙이는 식별자다. 같은 키로 같은 회차·사용자를 다시 보내면 새로 판단하지 않고 처음 저장한 `requestId`, 상태, 시각을 그대로 돌려준다. 같은 키를 다른 회차나 사용자에 재사용하면 `409 Conflict`다. 키를 바꾸면 새로운 시도이므로, 매진으로 거절된 사용자는 자리가 생긴 뒤 새 키로 다시 예약할 수 있다.
+
+이미 **확정된** 예약이 있는 `userId`가 새로운 키로 다시 보내면 `REJECTED_DUPLICATE`, 정원을 초과하면 `REJECTED_SOLD_OUT`이 저장된다. 중복 판정은 확정된 예약이 있는지 **애플리케이션이 조회 한 줄로** 확인한다. DB에는 아직 이를 막는 제약이 없다.
 
 회차를 마감하면 더 이상 예약을 받지 않는다.
 
@@ -104,10 +107,10 @@ curl -X POST http://localhost:18090/reservation-rounds/round-1/close
 
 ## 4. 지금 없는 것
 
-이 구현에는 **동시 요청을 대비한 장치가 하나도 없다.** 요청이 한 번에 하나씩 온다고 가정한다.
+이 구현에는 정원 차감과 1인 1매를 지키는 **동시성 장치가 아직 없다.** 다만 같은 `Idempotency-Key`를 가진 재시도는 이미 처리한 결과를 돌려준다. 서로 다른 키의 동시 요청은 여전히 한 번에 하나씩 온다고 가정한다.
 
 ```java
-// ReservationService.reserve() — 읽고, 판단하고, 쓴다
+// ReservationService.reserve() — 키를 확인한 뒤 읽고, 판단하고, 쓴다
 var round = roundRepository.findById(roundId).orElse(null);
 ...
 round.takeOne();
@@ -120,7 +123,9 @@ roundRepository.save(round);
 # 정원 2인 회차에 서로 다른 다섯 사람이 동시에
 for u in 1 2 3 4 5; do
   curl -s -X POST http://localhost:18090/reservation-rounds/round-1/reservations \
-    -H 'Content-Type: application/json' -d "{\"userId\":\"user-$u\"}" &
+    -H 'Content-Type: application/json' \
+    -H "Idempotency-Key: round-1-user-$u-attempt-1" \
+    -d "{\"userId\":\"user-$u\"}" &
 done; wait
 ```
 
@@ -128,7 +133,7 @@ done; wait
 다섯 건 모두 CONFIRMED · remainingCount = 1
 ```
 
-정원 2를 3건 넘겨 팔았고 장부와 실제도 어긋난다. 재시도도 마찬가지다 — 응답이 유실되어 다시 보내면 서버는 그것이 같은 업무 요청인지 알 방법이 없다.
+정원 2를 3건 넘겨 팔았고 장부와 실제도 어긋난다. 서로 다른 키로 재시도하면 여전히 새 요청이지만, 같은 키로 재시도하면 저장된 결과를 다시 받는다.
 
 무엇을 더하면 무엇이 막히는지는 **6. 보호 장치를 하나씩 켜 보기**에서 단계별로 확인한다. 필요를 겪은 뒤에 이 구현으로 하나씩 되가져온다.
 
@@ -143,7 +148,7 @@ gradle test
 
 선착순에서 실제로 밟는 경로를 검증한다.
 
-요청이 한 번에 하나씩 올 때의 업무 규칙만 확인한다. 동시 요청과 재시도는 여기서 다루지 않는다 — 지금 코드에 그것을 지킬 장치가 없기 때문이다.
+요청이 한 번에 하나씩 올 때의 업무 규칙과 같은 키의 재시도를 확인한다. 서로 다른 요청의 동시성은 여기서 다루지 않고 `com.popup.pass.study`의 단계별 테스트에서 본다.
 
 - 정원이 남으면 확정, 넘으면 매진 거절
 - 확정된 사용자가 다시 요청하면 중복 거절이고 정원은 깎지 않음
@@ -153,6 +158,8 @@ gradle test
 - 마감한 회차는 자리가 남아 있어도 예약을 받지 않음
 - 마감을 여러 번 호출해도 결과가 같음
 - 결과를 `requestId`로 다시 조회 가능
+- 같은 `Idempotency-Key`로 재시도해도 같은 결과와 한 건의 기록만 남음
+- 같은 키를 다른 요청 내용에 사용하면 충돌하고 자리와 기록이 변하지 않음
 
 ## 6. 보호 장치를 하나씩 켜 보기
 
@@ -163,7 +170,7 @@ gradle test
 | 0 | 없음 | — | 초과 판매 · 이중 예약 · 재시도 중복 |
 | 1 | 원자적 차감 (`update ... where remaining_count > 0`) | 초과 판매 | 이중 예약 · 재시도 중복 |
 | 2 | 확정 예약 부분 유니크 인덱스 | 이중 예약 | 재시도가 원래 결과를 잃음 |
-| 3 | 멱등성 키 (`Idempotency-Key` → `request_id` PK) | 재시도 중복 | — |
+| 3 | 멱등성 키 (`Idempotency-Key` → `idempotency_key` UNIQUE) | 재시도 중복 | — |
 
 단계마다 파일이 하나씩이다. 무엇이 어디서 깨지는지 보이도록 JPA 없이 SQL을 그대로 쓰고, 전용 테이블(`study_*`)만 건드리므로 실제 예약 테이블과 섞이지 않는다.
 
@@ -173,7 +180,7 @@ src/main/java/com/popup/pass/study/
 ├── steps/Step0NoGuard.java              읽고 → 판단하고 → 쓴다
 ├── steps/Step1AtomicDecrement.java      + 조건부 UPDATE 한 문장
 ├── steps/Step2UniqueIndex.java          + 부분 유니크 인덱스
-├── steps/Step3IdempotencyKey.java       + 멱등성 키 (지금의 프로덕션 코드)
+├── steps/Step3IdempotencyKey.java       + 멱등성 키 (학습용은 request_id PK로 단순화)
 ├── steps/StepWithoutDuplicateRule.java  곁가지 · 1인 2매를 허용하는 세계
 └── StudyRunner.java                     한 단계에 한 상황을 들이대고 판정까지 만든다
 ```
@@ -188,7 +195,7 @@ src/main/java/com/popup/pass/study/
 gradle bootRun --args='--spring.profiles.active=study'
 ```
 
-그 다음 두 화면을 연다 — `site/popup-pass-demo.html`은 **지금 이 순정 구현**을 그대로 부르고, `site/popup-pass-guards.html`은 보호 장치를 켠 단계들을 부른다. 단계 × 상황 매트릭스가 나오고, 칸을 누르면 **실제 서버에서 진짜로 동시 요청이 일어난다.** 경합이 실제로 벌어지므로 누를 때마다 숫자가 조금씩 다를 수 있다.
+그 다음 두 화면을 연다 — `site/popup-pass-demo.html`은 **현재 동기 구현**을 그대로 부르고, `site/popup-pass-guards.html`은 보호 장치를 켠 학습용 단계들을 부른다. 단계 × 상황 매트릭스가 나오고, 칸을 누르면 **실제 서버에서 진짜로 동시 요청이 일어난다.** 경합이 실제로 벌어지므로 누를 때마다 숫자가 조금씩 다를 수 있다.
 
 ```bash
 # 0단계에 "정원 2에 5명이 동시에"를 들이댄다
@@ -269,7 +276,7 @@ curl -s http://localhost:18090/load
 p95 지연은 9.5ms에서 223.9ms로 **24배**가 됐다. 늘어난 요청은 처리량이 아니라 대기 줄로 갔다.
 
 풀이 10개이므로 동시 600건 중 590건은 언제나 남의 트랜잭션이 끝나기를 기다린다.
-`reserve()`는 `@Transactional`이라 커넥션을 트랜잭션 내내 붙잡고, 요청 하나의 커넥션 점유 시간은 약 4ms다.
+`reserve()`는 한 건의 업무 처리를 트랜잭션 안에서 끝내므로 커넥션을 그동안 붙잡고, 요청 하나의 커넥션 점유 시간은 약 4ms다.
 600건 ÷ 10커넥션 × 4ms ≈ 245ms — 실제로 잰 전체 소요와 맞는다.
 **커넥션 점유 시간은 부하가 커져도 변하지 않는다.** 변하는 것은 자기 차례를 기다리는 시간뿐이다.
 

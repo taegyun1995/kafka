@@ -17,6 +17,9 @@ public class Reservation {
     @Column(name = "request_id", length = 36)
     private String requestId;
 
+    @Column(name = "idempotency_key", length = 128)
+    private String idempotencyKey;
+
     @Column(name = "round_id", nullable = false, length = 80)
     private String roundId;
 
@@ -33,8 +36,10 @@ public class Reservation {
     protected Reservation() {
     }
 
-    public Reservation(String requestId, String roundId, String userId, ReservationStatus status, Instant createdAt) {
+    public Reservation(String requestId, String idempotencyKey, String roundId, String userId,
+                       ReservationStatus status, Instant createdAt) {
         this.requestId = requestId;
+        this.idempotencyKey = idempotencyKey;
         this.roundId = roundId;
         this.userId = userId;
         this.status = status;
@@ -43,6 +48,10 @@ public class Reservation {
 
     public String getRequestId() {
         return requestId;
+    }
+
+    public String getIdempotencyKey() {
+        return idempotencyKey;
     }
 
     public String getRoundId() {
