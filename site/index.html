@@ -29,6 +29,9 @@
       <a data-chapter-switch="cluster" href="#broker-intro" aria-label="Kafka Cluster 학습 트랙으로 이동">
         <span class="chapter-index">02</span><span class="chapter-label" data-mobile-label="CL">Kafka Cluster</span>
       </a>
+      <a data-chapter-switch="control-plane" href="#cluster-controller" aria-label="Control Plane · Controller와 KRaft로 이동">
+        <span class="chapter-index">CP</span><span class="chapter-label" data-mobile-label="CP">Control Plane</span>
+      </a>
       <a data-chapter-switch="spring" href="#spring-producer" aria-label="Spring Kafka 학습 트랙으로 이동">
         <span class="chapter-index">03</span><span class="chapter-label" data-mobile-label="S">Spring Kafka</span>
       </a>
@@ -98,7 +101,7 @@
         <a href="#cluster-topic-design">Topic 설계 · Partition 수</a>
         <a href="#cluster-operations">운영 지표 · Lag</a>
         <a href="#cluster-performance-reading">처리량 · p95 · 완료 지연</a>
-        <span class="toc-group">Control Plane</span>
+        <span class="toc-group">02 · Control Plane · Metadata 관리</span>
         <a href="#cluster-controller">Controller · Metadata</a>
         <a href="#control-plane-compare">ZooKeeper ↔ KRaft 한 장 비교</a>
         <span class="toc-group">KRaft Deep Dive</span>
@@ -202,7 +205,11 @@
         <a href="#cluster-topic-design">Topic 설계 · Partition 수</a>
         <a href="#cluster-operations">운영 지표 · Lag</a>
         <a href="#cluster-performance-reading">처리량 · p95 · 완료 지연</a>
-        <span class="toc-group">Control Plane</span>
+        <span class="toc-group">Version Map</span>
+        <a href="#cluster-evolution">3.x → 4.3 변화 지도</a>
+      </nav>
+      <nav class="toc toc-chapter" id="control-plane-toc" data-chapter="control-plane" aria-label="Control Plane · Controller·KRaft·ZooKeeper 목차" hidden>
+        <span class="toc-group">02 · Control Plane · Metadata 관리</span>
         <a href="#cluster-controller">Controller · Metadata</a>
         <a href="#control-plane-compare">ZooKeeper ↔ KRaft 한 장 비교</a>
         <span class="toc-group">KRaft Deep Dive</span>
@@ -218,8 +225,6 @@
         <a href="#zookeeper-session">Session · Ephemeral ZNode</a>
         <a href="#zookeeper-zab">ZAB</a>
         <a href="#zookeeper-kraft">장애 시나리오 최종 비교</a>
-        <span class="toc-group">Version Map</span>
-        <a href="#cluster-evolution">3.x → 4.3 변화 지도</a>
       </nav>
       <nav class="toc toc-chapter" id="spring-toc" data-chapter="spring" aria-label="Spring Kafka 목차" hidden>
         <span class="toc-group">03 · Spring Producer</span>
@@ -443,15 +448,36 @@
             <article><strong>직접 호출</strong><p><code>주문 → 결제</code> <code>주문 → 재고</code> <code>주문 → 알림</code> <code>주문 → 집계</code><br>주문 서비스가 네 서비스를 모두 호출하고 응답을 기다립니다. 하나라도 느리거나 멈추면 주문이 영향을 받습니다.</p></article>
             <article><strong>Kafka를 둔 구조</strong><p><code>주문 → order-events Topic</code><br><code>결제 · 재고 · 알림 · 집계 ← order-events</code><br>주문 서비스는 기록 한 번으로 끝나고, 네 서비스가 각자 자기 속도로 읽습니다.</p></article>
           </div>
-          <div class="table-wrap" tabindex="0" role="region" aria-label="Kafka는 서비스 사이의 직접 호출을 기록하고 구독하는 구조로 바꾼다 표 · 좌우로 움직여 읽기">
-            <table>
-              <thead><tr><th>결합</th><th>Kafka가 바꾸는 방식</th><th>자세히</th></tr></thead>
+          <div class="table-wrap coupling-table-wrap" id="intro-coupling-comparison" tabindex="0" role="region" aria-label="직접 호출과 Kafka 방식 비교">
+            <table class="coupling-table" role="table">
+              <colgroup><col class="coupling-name"><col><col class="coupling-reference"></colgroup>
+              <thead><tr><th scope="col">구분</th><th scope="col">Kafka가 바꾸는 방식</th><th scope="col">자세히</th></tr></thead>
               <tbody>
-                <tr><td>① 가용성</td><td>Producer는 Broker에 기록만 하면 됩니다. Consumer가 잠시 멈춰도 Record는 Kafka에 남아 있고, 다시 살아난 Consumer가 멈춘 위치부터 읽습니다.</td><td><a href="#consumer-offset">Offset · Commit</a></td></tr>
-                <tr><td>② 속도</td><td>Kafka가 완충 지대가 됩니다. 요청이 몰리면 밀린 양이 응답 지연 대신 Consumer Lag(아직 처리하지 못하고 밀린 양)으로 드러나고, Consumer는 감당할 수 있는 속도로 읽습니다.</td><td><a href="#consumer-rebalance">Rebalance · Lag</a></td></tr>
-                <tr><td>③ 연결 수</td><td>새 서비스는 Producer 코드를 바꾸지 않고 자기 Consumer Group으로 같은 Topic을 구독합니다. Group마다 같은 Record를 독립적으로 받습니다.</td><td><a href="#consumer-group">Consumer Group</a></td></tr>
-                <tr><td>④ 기록</td><td>Kafka는 읽은 Record를 지우지 않고 보존 기간 동안 Log에 남깁니다. 읽을 위치(Offset)를 되돌리면 같은 Record를 다시 처리할 수 있습니다.</td><td><a href="#broker-retention">Retention</a></td></tr>
-                <tr><td>처리량</td><td>Topic을 여러 Partition으로 나눠 여러 Broker가 저장하고 여러 Consumer가 나눠 읽습니다. 서버 한 대의 성능이 처리량의 상한이 되지 않습니다.</td><td><a href="#consumer-group">Consumer Group</a></td></tr>
+                <tr>
+                  <th scope="row">① 가용성</th>
+                  <td><p>Producer는 후속 서비스를 직접 호출하는 대신 Kafka에 발행합니다.</p><p>Consumer가 잠시 멈춰도, Record가 보존돼 있다면 마지막 Committed Offset을 기준으로 다시 읽을 수 있습니다.</p></td>
+                  <td><a href="#consumer-offset">Offset · Commit</a></td>
+                </tr>
+                <tr>
+                  <th scope="row">② 속도</th>
+                  <td><p>Kafka가 유입량과 처리 속도의 차이를 완충하고, Consumer는 감당할 수 있는 속도로 읽습니다.</p><p>유입이 처리보다 계속 빠르면 Lag이 늘어납니다. 접수 응답과 최종 업무 완료의 지연은 따로 봅니다.</p></td>
+                  <td><a href="#consumer-rebalance">Rebalance · Lag</a></td>
+                </tr>
+                <tr>
+                  <th scope="row">③ 연결 수</th>
+                  <td><p>새 서비스는 별도 Consumer Group으로 같은 Topic을 구독합니다.</p><p>Group마다 독립적으로 읽으므로, Producer에 새 후속 서비스를 호출하는 코드를 추가할 필요가 줄어듭니다.</p></td>
+                  <td><a href="#consumer-group">Consumer Group</a></td>
+                </tr>
+                <tr>
+                  <th scope="row">④ 기록</th>
+                  <td><p>Consumer가 읽어도 Record는 즉시 삭제되지 않습니다.</p><p>남아 있는 Record는 Offset을 되돌려 다시 읽을 수 있습니다. 보존·Compaction 정책으로 삭제된 Record는 되살아나지 않습니다.</p></td>
+                  <td><a href="#broker-retention">Retention</a></td>
+                </tr>
+                <tr>
+                  <th scope="row">처리량</th>
+                  <td><p>Partition을 여러 Broker와 Consumer에 나눠 저장·처리할 수 있습니다.</p><p>병렬 처리 범위를 넓히지만, 특정 Key에 부하가 몰리거나 외부 DB가 병목이면 처리량이 늘지 않을 수 있습니다.</p></td>
+                  <td><a href="#consumer-group">Consumer Group</a></td>
+                </tr>
               </tbody>
             </table>
           </div>

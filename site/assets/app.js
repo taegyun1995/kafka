@@ -25,7 +25,12 @@
     cluster: {
       number: "02",
       title: "Kafka Cluster",
-      description: "Broker Data 역할과 Controller Control 역할"
+      description: "Broker · 저장과 복제 · Topic 설계 · 운영 지표"
+    },
+    "control-plane": {
+      number: "02",
+      title: "Control Plane",
+      description: "Kafka Cluster의 Metadata 관리 · Controller · KRaft · ZooKeeper"
     },
     spring: {
       number: "03",
@@ -41,7 +46,11 @@
       return "spring";
     }
 
-    if (id.indexOf("broker-") === 0 || id.indexOf("cluster-") === 0 || id.indexOf("control-plane-") === 0 || id.indexOf("kraft-") === 0 || id.indexOf("zookeeper-") === 0) {
+    if (id === "cluster-controller" || id.indexOf("control-plane-") === 0 || id.indexOf("kraft-") === 0 || id.indexOf("zookeeper-") === 0) {
+      return "control-plane";
+    }
+
+    if (id.indexOf("broker-") === 0 || id.indexOf("cluster-") === 0) {
       return "cluster";
     }
 
