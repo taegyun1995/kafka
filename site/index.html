@@ -7,8 +7,8 @@
   <meta name="description" content="왜 Kafka가 필요한지부터 Data Plane, Kafka Cluster, Spring Kafka, 운영과 버전 변화까지 초급부터 최고급까지 수준별로 읽는 Kafka 학습 문서">
   <title>Kafka 기초 · Data Plane · Cluster | Kafka Study Notes</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./assets/styles.css">
-  <script src="./assets/app.js" defer></script>
+  <link rel="stylesheet" href="./assets/styles.css?v=20261026-1">
+  <script src="./assets/app.js?v=20261026-1" defer></script>
 </head>
 <body class="readable-notes">
   <a class="skip-link" href="#main-content">본문으로 이동</a>
@@ -28,9 +28,6 @@
       </a>
       <a data-chapter-switch="cluster" href="#broker-intro" aria-label="Kafka Cluster 학습 트랙으로 이동">
         <span class="chapter-index">02</span><span class="chapter-label" data-mobile-label="CL">Kafka Cluster</span>
-      </a>
-      <a data-chapter-switch="control-plane" href="#cluster-controller" aria-label="Control Plane · Controller와 KRaft로 이동">
-        <span class="chapter-index">CP</span><span class="chapter-label" data-mobile-label="CP">Control Plane</span>
       </a>
       <a data-chapter-switch="spring" href="#spring-producer" aria-label="Spring Kafka 학습 트랙으로 이동">
         <span class="chapter-index">03</span><span class="chapter-label" data-mobile-label="S">Spring Kafka</span>
@@ -143,6 +140,10 @@
           <span data-chapter-description>왜 Kafka인가 · Event · Log 모델 · 용어 사전</span>
         </div>
       </div>
+      <nav class="cluster-subnav" data-cluster-subnav aria-label="Kafka Cluster 내부 역할 선택" hidden>
+        <a href="#broker-intro" data-cluster-view="cluster">저장·복제</a>
+        <a href="#cluster-controller" data-cluster-view="control-plane">Control Plane</a>
+      </nav>
       <nav class="toc toc-chapter" id="overview-toc" data-chapter="overview" aria-label="Kafka 기초 목차">
         <span class="toc-group">00 · Kafka 기초</span>
         <a href="#top">학습 구조 · 수준별 경로</a>
@@ -853,7 +854,7 @@
             <div><dt>Offset Commit</dt><dd>Group이 Partition마다 다음에 읽을 위치를 Kafka에 저장하는 일. DB Transaction의 Commit과 다릅니다. <a href="#consumer-offset">Offset · Commit</a></dd></div>
             <div><dt>Committed Offset</dt><dd>Group이 Partition마다 저장한 “다음에 읽을 위치”. <code>__consumer_offsets</code> Topic에 저장됩니다. <a href="#consumer-offset">Offset · Commit</a></dd></div>
             <div><dt>Position</dt><dd>Consumer 메모리에 있는 다음 읽기 위치. <code>poll()</code>할 때마다 앞으로 가며, Commit하기 전에는 Committed Offset과 다를 수 있습니다. <a href="#consumer-offset">Offset · Commit</a></dd></div>
-            <div><dt>Lag</dt><dd>Consumer가 읽을 수 있는 끝(High Watermark, <code>read_committed</code>면 Last Stable Offset)과 Committed Offset의 차이. 얼마나 뒤처졌는지를 나타냅니다. <a href="#consumer-rebalance">Lag</a></dd></div>
+            <div><dt>Lag</dt><dd>끝 Offset과 소비 진행 Offset의 차이. Group CLI는 High Watermark − Committed Offset, Consumer API는 Isolation Level에 따른 끝과 현재 Position을 기준으로 볼 수 있어 측정 도구를 함께 확인합니다. <a href="#consumer-rebalance">Lag</a></dd></div>
             <div><dt>DLT</dt><dd>Dead Letter Topic. 처리에 계속 실패한 Record를 따로 보내 두는 Topic입니다. <a href="#consumer-failure">실패 처리</a></dd></div>
             <div><dt>Share Group</dt><dd>여러 Consumer가 같은 Partition을 나눠 받고 Record마다 확인하는 Queue 방식 Group입니다(<span class="nowrap">KIP-932</span>, 4.2 운영 준비 완료). <a href="#intro-compare">Queue와 비교</a></dd></div>
           </dl>
@@ -1486,7 +1487,7 @@ kafkaTemplate.send(tombstone);</code></pre>
             <li><span>01</span><div><strong>Topic · Key로 Partition 선택</strong><p><code>order-events</code>의 <code>order-123</code> Key가 Partition 1로 결정됩니다.</p></div></li>
             <li><span>02</span><div><strong>Client Metadata에서 Leader 확인</strong><p>Partition 1의 Leader가 Broker 2임을 Cache에서 찾습니다.</p></div></li>
             <li><span>03</span><div><strong>Broker 2 연결을 사용해 ProduceRequest 전송</strong><p>같은 Partition의 Record를 모은 Batch가 Kafka Binary Protocol로 전송됩니다.</p></div></li>
-            <li><span>04</span><div><strong>Leader가 Log에 Append하고 Offset을 부여</strong><p><code>acks</code> 조건에 따라 Replica 확인을 거친 뒤 ProduceResponse가 돌아옵니다.</p></div></li>
+            <li><span>04</span><div><strong>Leader가 Log에 Append하고 Offset을 부여</strong><p><code>acks=1/all</code>은 설정된 확인 조건을 충족하면 ProduceResponse가 돌아옵니다. <code>acks=0</code>은 응답을 기다리지 않습니다.</p></div></li>
           </ol>
 
           <div class="produce-route" role="img" aria-label="order events Topic Partition 1을 Leader로 가진 Broker 2에 ProduceRequest가 직접 전달되고 acks 응답이 Producer로 돌아오는 흐름">
@@ -1559,7 +1560,7 @@ kafkaTemplate.send(tombstone);</code></pre>
 
           <aside class="warning">
             <strong>설정 하나로 끝나지 않는다</strong>
-            <p><code>acks=all</code>은 현재 ISR 전체의 확인을 기다리고, <code>min.insync.replicas</code>는 <code>acks=all</code> 쓰기를 허용할 최소 ISR 수를 정합니다. ISR이 그보다 적으면 Producer는 <code>NotEnoughReplicasException</code>(재시도 가능한 오류)을 받고 <code>delivery.timeout.ms</code>까지 재시도한 뒤 실패합니다. <code>acks=0·1</code> 쓰기는 거부되지 않지만, 그 Record도 ISR 전체에 복제되고 이 조건을 채우기 전에는 Consumer가 읽을 수 없습니다(<a href="#cluster-intro">High Watermark</a>).</p>
+            <p><code>acks=all</code>은 현재 ISR 전체의 확인을 기다리고, <code>min.insync.replicas</code>는 <code>acks=all</code> 쓰기를 허용할 최소 ISR 수를 정합니다. ISR이 그보다 적으면 Producer는 <code>NotEnoughReplicasException</code> 같은 재시도 가능한 오류를 받습니다. <code>retries</code>와 <code>delivery.timeout.ms</code> 한도 안에서 재시도하며, 재시도 횟수 소진 등으로 시간 한도보다 일찍 실패할 수도 있습니다. <code>acks=0·1</code> 쓰기는 거부되지 않지만, 그 Record도 ISR 전체에 복제되고 이 조건을 채우기 전에는 Consumer가 읽을 수 없습니다(<a href="#cluster-intro">High Watermark</a>).</p>
           <p>그래서 ISR이 부족하면 “Producer는 성공하는데 Consumer는 아무것도 받지 못하는” 상황이 생깁니다. Replication Factor, Retry, Idempotence와 Leader 선출 정책도 함께 봐야 합니다. Broker 1대(Replication Factor 1)만으로는 Follower가 ISR에서 빠지고 복귀하는 과정을 볼 수 없습니다.</p>
           </aside>
         </section>
@@ -1828,7 +1829,7 @@ Runtime.getRuntime().addShutdownHook(new Thread(() -&gt;
 
           <aside class="warning">
             <strong>TCP 전송 성공 ≠ Kafka 저장 성공</strong>
-            <p>TCP가 바이트를 Broker Socket까지 전달한 것만으로 Record 저장이 보장되지는 않습니다. Broker가 요청을 처리하고 <code>acks</code> 조건에 맞는 <code>ProduceResponse</code>를 반환해야 Producer가 성공을 판단할 수 있습니다.</p>
+            <p>TCP가 바이트를 Broker Socket까지 전달한 것만으로 Record 저장이 보장되지는 않습니다. <code>acks=1/all</code>에서는 Broker가 요청을 처리하고 설정된 확인 조건에 맞는 <code>ProduceResponse</code>를 반환해야 Producer가 성공을 판단합니다. <code>acks=0</code>은 이 응답을 기다리지 않으므로 Broker 저장 성공을 확인한 것이 아닙니다.</p>
           </aside>
 
           <h3>연결은 Record마다 새로 만들지 않는다</h3>
@@ -2532,12 +2533,15 @@ Sticky         첫 배분의 균형은 RoundRobin과 같은 3:3이다
 
           <h3>Lag은 Consumer가 얼마나 뒤처졌는가를 나타낸다</h3>
           <div class="summary-boundaries" aria-label="Consumer Lag을 해석하는 기준">
-            <article><strong>High Watermark</strong><p>Consumer가 읽을 수 있는 끝 위치입니다. <code>read_committed</code>면 LSO가 기준이고, 도구의 <code>LOG-END-OFFSET</code> 열도 실제로는 이 값입니다.</p></article>
+            <article><strong>CLI의 끝 위치 · HW</strong><p>Kafka 4.3 <code>kafka-consumer-groups --describe</code>의 <code>LOG-END-OFFSET</code>은 High Watermark 기준입니다. 대상 Consumer의 Isolation Level에 따라 LSO로 바뀌는 값은 아닙니다.</p></article>
             <article><strong>Committed Offset</strong><p>Consumer Group이 Kafka에 저장한 처리 기준 위치입니다.</p></article>
-            <article><strong>Lag</strong><p>두 Offset의 차이로, 처리 지연의 신호가 될 수 있습니다.</p></article>
+            <article><strong>Group CLI의 Lag</strong><p>위 끝 위치에서 Committed Offset을 뺀 값입니다. Offset 차이이므로 실제 미처리 업무 건수와 항상 같지는 않습니다.</p></article>
             <article><strong>원인 확인</strong><p>Producer 유입량·외부 DB 지연·Partition 수·Rebalance를 함께 봅니다.</p></article>
           </div>
+          <p>반면 <code>KafkaConsumer.endOffsets()</code>는 <code>read_uncommitted</code>에서 HW, <code>read_committed</code>에서 Last Stable Offset(LSO)을 반환합니다. <code>currentLag()</code>는 이 끝과 메모리의 Position 차이를 보므로 Group CLI의 Lag과 다를 수 있습니다.</p>
           <p>Committed Offset 기준 Lag이 <code>0</code>이어도 DB 효과의 완료를 증명하지는 않습니다. 처리 전에 Offset을 Commit한 구현이라면 기록을 모두 읽었다고 표시되면서 구매 활동은 빠질 수 있습니다. 그래서 <a href="#consumer-redelivery-lab">실제 Offset과 DB 결과</a>를 함께 확인합니다.</p>
+
+          <p class="source-note">측정 기준: <a href="https://kafka.apache.org/43/javadoc/org/apache/kafka/clients/consumer/KafkaConsumer.html">KafkaConsumer API</a>, Kafka 4.3의 <a href="https://github.com/apache/kafka/blob/4.3.0/tools/src/main/java/org/apache/kafka/tools/OffsetsUtils.java">Group CLI Offset 조회 구현</a>과 <a href="https://github.com/apache/kafka/blob/4.3.0/clients/src/main/java/org/apache/kafka/clients/admin/ListOffsetsOptions.java">기본 Isolation Level</a>.</p>
 
           <aside class="warning">
             <strong>Consumer 종료도 Commit 정책과 함께 봐야 한다</strong>
@@ -3074,25 +3078,27 @@ INSERT INTO processed_event (event_id, processed_at) VALUES (?, now());</code></
 );
 
 Producer&lt;String, Event&gt; producer = new KafkaProducer&lt;&gt;(properties);
-producer.initTransactions();
-
 try {
-    producer.beginTransaction();
-    producer.send(new ProducerRecord&lt;&gt;("order-events", orderId, orderEvent));
-    producer.send(new ProducerRecord&lt;&gt;("audit-events", orderId, auditEvent));
-    producer.commitTransaction();
-} catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
-    // 이 Producer는 복구할 수 없다. close 후 Instance를 종료한다.
-    producer.close();
-    throw e;
-} catch (TimeoutException e) {
-    // commit/abort 중 timeout이면 결과가 진행 중일 수 있다.
-    // 같은 commit/abort를 재시도하거나 Producer를 닫고 상태를 확인한다.
-    throw e;
-} catch (KafkaException e) {
-    // Abort 가능한 오류라면 기존 Transaction 전체를 취소한 뒤 재시도할 수 있다.
-    producer.abortTransaction();
-    throw e;
+    producer.initTransactions();
+    try {
+        producer.beginTransaction();
+        producer.send(new ProducerRecord&lt;&gt;("order-events", orderId, orderEvent));
+        producer.send(new ProducerRecord&lt;&gt;("audit-events", orderId, auditEvent));
+        producer.commitTransaction();
+    } catch (ProducerFencedException | OutOfOrderSequenceException | AuthorizationException e) {
+        // 이 Producer는 복구할 수 없다. close 후 Instance를 종료한다.
+        throw e;
+    } catch (TimeoutException | InterruptException e) {
+        // commit 단계라면 이미 확정 중일 수 있으므로 abort로 바꾸지 않는다.
+        // 이 예시는 재시도 대신 finally에서 닫고 결과를 상위로 알린다.
+        throw e;
+    } catch (KafkaException e) {
+        // Abort 가능한 오류라면 기존 Transaction 전체를 취소한 뒤 재시도할 수 있다.
+        producer.abortTransaction();
+        throw e;
+    }
+} finally {
+    producer.close(Duration.ofSeconds(10));
 }</code></pre>
           </div>
 
@@ -3260,7 +3266,12 @@ purchaseHandler.handle(event):
 
           <aside class="warning">
             <strong>Saga도 <span class="nowrap">At-least-once</span> 전달을 전제로 설계한다</strong>
-            <p>예를 들어 <code>PaymentApproved</code>가 중복 전달되어도 결제가 두 번 승인되면 안 됩니다. 따라서 각 참여 서비스는 <code>eventId</code>로 중복을 처리하고, 보상 동작도 반복 실행해 안전해야 합니다. Kafka Transaction은 Kafka 내부 Record·Offset 원자성에만 관여하며, Saga 전체를 한 번에 Commit·Rollback하지 않습니다.</p>
+            <p>예를 들어 결제 요청 Event가 중복 전달되어도 결제가 두 번 승인되면 안 됩니다. 각 참여 서비스는 <code>eventId</code>와 업무 식별자로 중복을 처리하고, 보상 동작도 반복 실행해 안전해야 합니다. Kafka Transaction은 Kafka 내부 Record·Offset 원자성에만 관여하며, Saga 전체를 한 번에 Commit·Rollback하지 않습니다.</p>
+          </aside>
+
+          <aside class="note">
+            <strong>외부 PG 승인은 로컬 DB Transaction 밖에 있다</strong>
+            <p>PG 승인은 성공했는데 DB 기록 전에 멈출 수 있습니다. Inbox만으로 이 구간의 이중 승인을 막을 수는 없습니다. 결제 요청의 안정적인 업무 식별자를 PG의 멱등 키와 연결하고, 응답 Timeout은 실패로 단정하지 않고 조회·대사로 확인해야 합니다. 취소·환불도 같은 업무가 반복 실행될 때의 정책이 필요합니다.</p>
           </aside>
 
           <div class="guarantee-boundaries" aria-label="Producer 보장 기능에서 혼동하기 쉬운 경계">
@@ -3511,7 +3522,7 @@ offset  key      value
 
           <aside class="warning">
             <strong>오래 멈춘 Consumer는 삭제 사실을 놓칠 수 있다</strong>
-            <p>Consumer가 <code>delete.retention.ms</code>보다 오래 멈춰 있다가 다시 읽기 시작하면, 이전 값도 Tombstone도 모두 정리된 뒤일 수 있습니다. 이 경우 Consumer의 로컬 상태에는 지워졌어야 할 Key가 그대로 남습니다. 상태를 Log로 복원하는 구조라면 이 유예 시간을 Consumer의 최대 중단 시간보다 길게 잡아야 합니다.</p>
+            <p>Consumer가 <code>delete.retention.ms</code>보다 오래 멈춰 있다가 다시 읽기 시작하면, 이전 값도 Tombstone도 모두 정리된 뒤일 수 있습니다. 이 경우 Consumer의 로컬 상태에는 지워졌어야 할 Key가 그대로 남습니다. 상태를 Log로 복원하는 구조라면 최대 중단 시간과 재시작 후 따라잡는 시간을 고려해야 합니다. Offset 0부터 전체 상태를 복원하는 Consumer도 <code>delete.retention.ms</code> 안에 전체 스캔을 끝낼 수 있어야 삭제 표시를 놓치지 않습니다.</p>
           </aside>
 
           <h3>어떤 Topic에 무엇을 쓰는가</h3>
@@ -3535,8 +3546,9 @@ offset  key      value
 
           <aside class="warning">
             <strong>Retention을 넘긴 Lag은 데이터 유실로 이어진다</strong>
-            <p>Consumer가 오래 멈춰 <a href="#consumer-rebalance">Lag</a>이 커지면, Committed Offset이 가리키던 Record가 이미 정리되었을 수 있습니다. 이때 Fetch는 <code>OffsetOutOfRange</code>가 되고 <a href="#consumer-config"><code>auto.offset.reset</code></a> 설정에 따라 <code>earliest</code>면 남아 있는 가장 오래된 Record로, <code>latest</code>면 Log 끝으로 건너뜁니다.</p>
+            <p><code>delete</code> Retention으로 Log 시작 위치가 전진해 Committed Offset이 <code>LogStartOffset</code>보다 작아지면, 그 위치는 더 이상 읽을 수 없습니다. 이때 Fetch의 <code>OffsetOutOfRange</code>에 대해 <a href="#consumer-config"><code>auto.offset.reset</code></a> 설정에 따라 <code>earliest</code>면 남아 있는 가장 오래된 Record로, <code>latest</code>면 Log 끝으로 건너뜁니다.</p>
           <p>어느 쪽이든 그 사이 Record는 그 Consumer Group이 영영 읽지 못합니다. Committed Offset 자체가 만료돼도 비슷한 결과가 납니다(<a href="#consumer-offset">Offset 만료</a>).</p>
+          <p>반면 <strong>Compaction으로 생긴 Offset의 빈칸</strong>은 유효한 읽기 위치입니다. 보존 범위 안이라면 다음으로 남아 있는 Record를 반환하며, 빈칸이라는 이유만으로 Offset Reset이 발생하지 않습니다.</p>
           </aside>
 
           <aside class="warning">
@@ -3988,7 +4000,7 @@ listener.name.controller.ssl.keystore.location=/etc/kafka/controller.keystore.p1
             <article><strong>Log End Offset (LEO)</strong><p>Leader가 다음 Record를 Append할 위치입니다. 아직 Follower가 복제하지 않은 Record까지 포함합니다.</p></article>
             <article><strong>High Watermark (HW)</strong><p>ISR 전체에 복제된 경계입니다. Consumer가 읽을 수 있는 끝이며, 복제가 진행되면 앞으로 이동합니다.</p></article>
             <article><strong>Committed Offset</strong><p>Consumer Group이 Partition마다 저장한 다음 읽을 위치입니다. Broker의 복제 상태와는 별개입니다. <a href="#consumer-offset">Offset</a></p></article>
-            <article><strong>Lag</strong><p>읽을 수 있는 끝과 Committed Offset의 차이입니다. <code>read_committed</code> Consumer는 HW 대신 Last Stable Offset을 끝으로 봅니다. <a href="#consumer-rebalance">Lag</a></p></article>
+            <article><strong>Lag</strong><p>Group CLI에서는 HW와 Committed Offset의 차이입니다. Consumer API로 측정하면 Isolation Level에 따라 HW 또는 LSO와 현재 Position을 비교하므로 측정 기준을 함께 봅니다. <a href="#consumer-rebalance">Lag</a></p></article>
           </div>
 
           <details class="topic-fold">
@@ -4169,7 +4181,7 @@ bin/kafka-topics.sh --bootstrap-server localhost:9092 \
 
 # GROUP  TOPIC  PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG  CONSUMER-ID  HOST  CLIENT-ID</code></pre>
           </div>
-          <p><code>LOG-END-OFFSET</code> 열은 이름과 달리 Consumer가 읽을 수 있는 끝인 High Watermark입니다(<a href="#consumer-rebalance">Lag</a>).</p>
+          <p>Kafka 4.3 Group CLI의 <code>LOG-END-OFFSET</code> 열은 High Watermark 기준이며, <code>LAG</code>은 이 값과 <code>CURRENT-OFFSET</code>(Committed Offset)의 차이입니다. 대상 Consumer가 <code>read_committed</code>여도 이 열이 LSO로 바뀌지는 않습니다(<a href="#consumer-rebalance">측정 기준</a>).</p>
 
           <h3 id="cluster-performance-reading">처리량·응답 지연·최종 완료를 나눠 읽는다</h3>
           <p>비동기 API의 빠른 접수 응답을 동기 API의 업무 완료 응답과 그대로 비교하면 서로 다른 일을 재게 됩니다. 동기·비동기를 비교할 때는 <a href="#intro-async-processing">응답 경계</a>를 먼저 맞추고, 접수부터 최종 상태가 결정될 때까지의 시간도 따로 봅니다.</p>

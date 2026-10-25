@@ -8981,3 +8981,114 @@ h3,
     transition: none;
   }
 }
+
+/* Cluster의 두 역할은 같은 상위 트랙 안에서 탐색한다. */
+.cluster-subnav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin: 0 0 14px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.cluster-subnav[hidden] { display: none; }
+.cluster-subnav a {
+  padding: 9px 5px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 3px;
+}
+.cluster-subnav a.is-active { color: var(--text); background: var(--panel); }
+.cluster-subnav a:focus-visible { outline: 2px solid var(--producer); outline-offset: 2px; }
+
+/* 일반 문장·설정 키는 줄바꿈하고, 코드 원문의 공백은 보존한다. */
+.content-section :is(p, li, td, th, dd, small) code,
+.yaml-builder-field > span,
+.yaml-builder-check > span,
+.yaml-builder-summary,
+.yaml-builder-validation {
+  overflow-wrap: anywhere;
+}
+.yaml-builder-section .section-heading h1 {
+  margin: 0;
+  font-size: clamp(22px, 2.6vw, 32px);
+  line-height: 1.5;
+  letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
+}
+.yaml-builder-section .section-heading h1 code { white-space: normal; }
+.yaml-builder-output-heading { flex-wrap: wrap; gap: 12px; }
+.yaml-builder-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.yaml-builder-button:disabled { opacity: 0.45; cursor: not-allowed; }
+.yaml-builder-field input[readonly] { color: var(--muted); }
+.yaml-builder-field { grid-template-columns: minmax(0, 1fr); }
+.yaml-builder-field > *,
+.yaml-builder-check > span { min-width: 0; }
+.yaml-builder-field code,
+.yaml-builder-check code { overflow-wrap: anywhere; white-space: normal; }
+.yaml-builder [hidden] { display: none !important; }
+.yaml-builder-field input[aria-invalid="true"] { border-color: #fb7185; }
+.yaml-builder-field .yaml-field-error { color: #fda4af; font-weight: 650; }
+.yaml-builder-validation {
+  margin: 0;
+  padding: 14px 18px;
+  border-top: 1px solid var(--line);
+  color: var(--builder);
+  font-size: 12px;
+  line-height: 1.75;
+}
+.yaml-builder-validation.has-errors { color: #fda4af; background: #2b1720; }
+.yaml-builder-summary {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0 22px 16px 34px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+.yaml-builder-summary li { padding-left: 2px; }
+.yaml-builder-code-hint {
+  margin: 0;
+  padding: 0 18px 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+.yaml-builder-output pre { overflow-x: auto; max-width: 100%; }
+.yaml-builder-output pre code { white-space: pre; overflow-wrap: normal; word-break: normal; }
+.yaml-builder-export-status {
+  margin: 0;
+  padding: 0 18px;
+  color: var(--builder);
+  font-size: 12px;
+  line-height: 1.75;
+}
+.yaml-builder-export-status:empty { display: none; }
+.yaml-builder-output pre:focus-visible { outline: 2px solid var(--builder); outline-offset: -3px; }
+
+@media (min-width: 761px) and (max-width: 980px) {
+  .record-layer-map,
+  .produce-route,
+  .zookeeper-session-flow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .record-layer-map > article,
+  .produce-route > article,
+  .zookeeper-session-flow > article { min-height: 0; }
+  .record-layer-map > b,
+  .produce-route > b,
+  .zookeeper-session-flow > b { transform: rotate(90deg); }
+}
+
+@media (max-width: 560px) {
+  .yaml-builder-section .section-heading h1 { font-size: 22px; }
+  .yaml-builder-actions { width: 100%; }
+  .yaml-builder-actions button { flex: 1 1 auto; }
+  .yaml-builder-validation { padding: 12px 14px; }
+  .yaml-builder-summary { padding: 0 18px 14px 29px; }
+}

@@ -7,8 +7,9 @@
   <meta name="description" content="Spring Kafka Producer·Consumer·Listener 설정을 선택해 application.yml을 생성하는 Kafka Study Notes 도구">
   <title>Spring Kafka YAML Builder | Kafka Study Notes</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./assets/styles.css">
-  <script src="./assets/app.js" defer></script>
+  <link rel="stylesheet" href="./assets/styles.css?v=20261026-1">
+  <script src="./assets/app.js?v=20261026-1" defer></script>
+  <script src="./assets/yaml-builder.js?v=20261026-1" defer></script>
 </head>
 <body class="builder-mode">
   <a class="skip-link" href="#main-content">본문으로 이동</a>
@@ -33,13 +34,13 @@
             <span>TOOL</span>
             <div>
               <p>Spring Kafka Configuration Builder</p>
-              <h2>옵션을 선택하면 <code>application.yml</code>을 생성합니다</h2>
+              <h1>옵션을 선택하면 <code>application.yml</code>을 생성합니다</h1>
             </div>
           </div>
 
           <a class="builder-back-link" href="./index.html#overview">← 학습 문서로 돌아가기</a>
 
-          <p>Producer·Consumer·Listener에 필요한 설정을 선택해 Spring Boot용 YAML을 생성합니다. 생성된 값은 학습·초기 구성용이며, 운영 환경의 Broker 주소·인증 정보는 환경변수나 Secret으로 주입하세요.</p>
+          <p>Producer·Consumer·Listener의 범위와 메시지 형식을 고르면 설정을 함께 맞춥니다. Spring Boot 3.x · Spring Kafka 3.3 기준의 시작 구성입니다. Broker 주소와 업무의 처리·오류 정책은 애플리케이션에 맞게 정하세요.</p>
 
           <div class="yaml-builder-presets" aria-label="YAML 생성 빠른 시작">
             <div>
@@ -56,7 +57,7 @@
             <p class="yaml-builder-preset-status" data-builder-status>프리셋은 설정 기반을 만듭니다. 실제 전달 보장은 전송·처리·Commit 코드까지 함께 결정합니다.</p>
           </div>
 
-          <form class="yaml-builder" data-yaml-builder>
+          <form class="yaml-builder" data-yaml-builder novalidate>
             <div class="yaml-builder-layout">
               <div class="yaml-builder-panel">
                 <div class="yaml-builder-panel-heading">
@@ -74,7 +75,7 @@
                     <input id="yaml-use-env" type="checkbox" checked>
                     <span>환경변수 Placeholder 사용 <code>${KAFKA_...:기본값}</code></span>
                   </label>
-                  <p class="yaml-builder-option-note">켜면 주소·Group ID·Transaction ID Prefix를 <code>${NAME:기본값}</code> 형태로 출력합니다. YAML에 실제 비밀번호·Broker 주소를 직접 남기지 않기 위한 선택입니다.</p>
+                  <p class="yaml-builder-option-note">켜면 주소·Group ID·Transaction ID Prefix를 <code>${NAME:기본값}</code> 형태로 출력합니다. 여기서 입력한 기본값도 YAML에 남습니다. Placeholder 사용 자체가 비밀값을 숨기지는 않습니다.</p>
                 </div>
 
                 <div class="yaml-builder-toggles" aria-label="YAML에 포함할 구성 선택">
@@ -93,6 +94,27 @@
                 </div>
                 <p class="yaml-builder-option-note yaml-builder-scope-note">Producer는 발행 Client, Consumer Client는 실제 <code>poll()</code>·Group·Offset 설정, Spring Listener는 그 Consumer를 감싼 Container와 Callback 설정입니다. <strong>Spring Listener를 선택하면 Consumer Client 설정도 자동으로 포함됩니다.</strong></p>
                 <p class="yaml-builder-scope-status" data-builder-scope-status aria-live="polite"></p>
+
+                <details class="yaml-builder-group" data-yaml-group="format" open>
+                  <summary>메시지 형식 · Value 계약</summary>
+                  <div class="yaml-builder-grid">
+                    <label class="yaml-builder-field yaml-builder-field-wide">
+                      <span>메시지 형식</span>
+                      <select id="yaml-message-format">
+                        <option value="string" selected>String · 문자열</option>
+                        <option value="json">JSON · 업무 DTO</option>
+                        <option value="bytes">Byte Array · 바이트 배열</option>
+                        <option value="custom">직접 지정 · Serializer 클래스</option>
+                      </select>
+                      <small class="yaml-option-description">Value Serializer와 Deserializer를 함께 맞춥니다. Key는 기본 String이며 각 옵션에서 따로 지정할 수 있습니다.</small>
+                    </label>
+                    <label class="yaml-builder-field yaml-builder-field-wide" data-json-contract hidden>
+                      <span>Consumer 대상 DTO 클래스</span>
+                      <input id="yaml-json-target-type" type="text" placeholder="com.example.order.OrderConfirmed" autocomplete="off">
+                      <small class="yaml-option-description">Consumer에 존재하는 클래스의 전체 이름입니다. 이 도구는 Type Header에 의존하지 않고 이 타입으로 복원하도록 설정합니다. 신뢰 패키지는 클래스의 패키지에서 정합니다.</small>
+                    </label>
+                  </div>
+                </details>
 
                 <details class="yaml-builder-group" data-yaml-group="producer" open>
                   <summary>Producer 옵션</summary>
@@ -113,8 +135,8 @@
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>retries</code></span>
-                      <input id="yaml-producer-retries" type="number" min="0" max="2147483647" value="10">
-                      <small class="yaml-option-description">일시적인 네트워크·Leader 오류 때 같은 Record 전송을 재시도하는 최대 횟수입니다. 멱등성과 함께 사용하세요.</small>
+                      <input id="yaml-producer-retries" type="number" min="0" max="2147483647" value="2147483647">
+                      <small class="yaml-option-description">일시적인 네트워크·Leader 오류 때 같은 Record 전송을 재시도하는 최대 횟수입니다. 기본은 2147483647이며, 보통 delivery.timeout.ms로 전체 재시도 기한을 제한합니다.</small>
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>compression.type</code></span>
@@ -134,8 +156,23 @@
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>linger.ms</code></span>
-                      <input id="yaml-producer-linger" type="number" min="0" value="5">
+                      <input id="yaml-producer-linger" type="number" min="0" max="9007199254740991" value="5">
                       <small class="yaml-option-description">Batch가 덜 찼더라도 더 기다리는 시간입니다. 값을 높이면 압축·처리량은 좋아질 수 있지만 발행 지연이 늘어납니다.</small>
+                    </label>
+                    <label class="yaml-builder-field">
+                      <span><code>request.timeout.ms</code></span>
+                      <input id="yaml-producer-request-timeout" type="number" min="0" max="2147483647" value="30000">
+                      <small class="yaml-option-description">Broker 요청 한 번의 응답을 기다리는 시간입니다.</small>
+                    </label>
+                    <label class="yaml-builder-field">
+                      <span><code>delivery.timeout.ms</code></span>
+                      <input id="yaml-producer-delivery-timeout" type="number" min="0" max="2147483647" value="120000">
+                      <small class="yaml-option-description">send() 반환 뒤 Batch 대기·전송·재시도의 전체 시간 한도입니다. request.timeout.ms + linger.ms 이상이어야 합니다.</small>
+                    </label>
+                    <label class="yaml-builder-field yaml-builder-field-wide">
+                      <span><code>max.in.flight.requests.per.connection</code></span>
+                      <input id="yaml-producer-max-in-flight" type="number" min="1" max="2147483647" value="5">
+                      <small class="yaml-option-description">연결당 응답 대기 중일 수 있는 요청 수입니다. 멱등성이 켜져 있으면 5 이하여야 합니다.</small>
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>key.serializer</code></span>
@@ -144,15 +181,15 @@
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>value.serializer</code></span>
-                      <input id="yaml-producer-value-serializer" type="text" value="org.springframework.kafka.support.serializer.JsonSerializer" autocomplete="off">
-                      <small class="yaml-option-description">Record Value를 Kafka에 저장할 바이트로 바꾸는 클래스입니다. Consumer의 Value Deserializer와 한 쌍으로 맞춥니다.</small>
+                      <input id="yaml-producer-value-serializer" type="text" value="org.apache.kafka.common.serialization.StringSerializer" autocomplete="off">
+                      <small class="yaml-option-description">Record Value를 Kafka에 저장할 바이트로 바꾸는 클래스입니다. Consumer의 Value Deserializer와 한 쌍으로 맞춥니다. 선택한 메시지 형식에 따라 자동으로 채워지고, 직접 지정 모드에서는 수정할 수 있습니다.</small>
                     </label>
                     <label class="yaml-builder-check yaml-builder-field-wide">
                       <input id="yaml-producer-idempotence" type="checkbox" checked>
                       <span>멱등성 활성화 <code>enable.idempotence=true</code></span>
                     </label>
                     <p class="yaml-builder-option-note">Retry로 같은 Produce 요청이 재전송되어도 Broker가 Producer Sequence를 사용해 중복 기록을 줄입니다. 애플리케이션의 DB 중복 처리까지 대신하지는 않습니다.</p>
-                    <p class="yaml-builder-help yaml-builder-field-wide">멱등성·Transaction을 사용하면 <code>acks=all</code>과 재시도가 필요합니다. 아래 선택기는 호환되지 않는 조합을 자동으로 보정합니다.</p>
+                    <p class="yaml-builder-help yaml-builder-field-wide">멱등성·Transaction을 사용하면 <code>acks=all</code>을 고정합니다. <code>retries&gt;0</code>과 <code>max.in.flight≤5</code> 조건을 벗어나면 오류를 표시합니다.</p>
                     <label class="yaml-builder-check yaml-builder-field-wide">
                       <input id="yaml-producer-transaction" type="checkbox">
                       <span>Transactional Producer 준비</span>
@@ -160,8 +197,8 @@
                     <p class="yaml-builder-option-note"><code>transaction-id-prefix</code>로 Transactional Producer와 Transaction Manager를 구성할 준비를 합니다. 실제 Transaction은 <code>KafkaTemplate.executeInTransaction(...)</code>, <code>@Transactional</code> 또는 Transaction이 설정된 Listener Container가 시작해야 합니다. 이 설정만으로 일반 <code>send()</code>가 자동으로 하나의 Transaction에 묶이는 것은 아니며, 외부 DB Commit도 자동으로 원자화하지 않습니다.</p>
                     <label class="yaml-builder-field yaml-builder-field-wide">
                       <span><code>transaction-id-prefix</code></span>
-                      <input id="yaml-producer-transaction-prefix" type="text" value="order-tx-" autocomplete="off">
-                      <small class="yaml-option-description">Spring이 Transactional Producer를 구분할 Prefix입니다. 여러 애플리케이션 인스턴스가 사용할 때 충돌하지 않도록 애플리케이션 식별자를 포함하세요.</small>
+                      <input id="yaml-producer-transaction-prefix" type="text" value="order-instance-1-tx-" autocomplete="off">
+                      <small class="yaml-option-description">Spring이 Transactional Producer를 구분할 Prefix입니다. 여러 애플리케이션 인스턴스가 사용할 때 충돌하지 않도록 인스턴스마다 고유한 식별자를 포함하세요. 모든 인스턴스에 같은 Prefix를 주면 Fencing이 발생할 수 있습니다.</small>
                     </label>
                   </div>
                 </details>
@@ -181,8 +218,8 @@
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>value.deserializer</code></span>
-                      <input id="yaml-consumer-value-deserializer" type="text" value="org.springframework.kafka.support.serializer.JsonDeserializer" autocomplete="off">
-                      <small class="yaml-option-description">Kafka Value 바이트를 애플리케이션 객체로 복원합니다. 업무 DTO에 JsonDeserializer를 쓰려면 해당 클래스가 Consumer에 존재해야 하며, 신뢰 패키지와 대상 타입 또는 Type Header 설정도 맞춰야 합니다. 이 도구는 해당 DTO 계약을 자동으로 구성하지 않습니다.</small>
+                      <input id="yaml-consumer-value-deserializer" type="text" value="org.apache.kafka.common.serialization.StringDeserializer" autocomplete="off">
+                      <small class="yaml-option-description">Kafka Value 바이트를 애플리케이션 객체로 복원합니다. JSON DTO 모드에서는 아래의 대상 클래스와 신뢰 패키지를 함께 출력합니다. 해당 DTO 클래스는 Consumer 프로젝트에 실제로 존재해야 합니다.</small>
                     </label>
                     <label class="yaml-builder-check yaml-builder-field-wide">
                       <input id="yaml-consumer-auto-commit" type="checkbox">
@@ -244,7 +281,7 @@
                         <option value="org.apache.kafka.clients.consumer.RoundRobinAssignor">RoundRobinAssignor</option>
                         <option value="org.apache.kafka.clients.consumer.StickyAssignor">StickyAssignor</option>
                       </select>
-                      <small class="yaml-option-description">Consumer Group의 Partition을 멤버에게 나누는 전략입니다. Rebalance 중 이동량과 분배 균형을 함께 고려합니다.</small>
+                      <small class="yaml-option-description">Classic Group Protocol의 Client 측 배정 전략입니다. 기존 Group의 멤버와 호환되는 전략으로 전환해야 하며, Consumer Protocol의 서버 측 Assignor와는 구분합니다.</small>
                       <small class="yaml-builder-value-help" data-yaml-value-help="yaml-consumer-assignment"></small>
                       <details class="yaml-choice-details">
                         <summary>선택값별 설명</summary>
@@ -290,10 +327,15 @@
                   </div>
                   <div class="yaml-builder-actions">
                     <button type="button" class="yaml-builder-button" data-builder-reset>초기화</button>
+                    <button type="button" class="yaml-builder-button" data-builder-download>파일 저장</button>
                     <button type="button" class="yaml-builder-button yaml-builder-button-primary" data-copy-target="yaml-output">YAML 복사</button>
                   </div>
                 </div>
-                <pre><code id="yaml-output"></code></pre>
+                <div class="yaml-builder-validation" data-builder-validation role="status" aria-live="polite"></div>
+                <ul class="yaml-builder-summary" data-builder-summary></ul>
+                <p class="yaml-builder-code-hint">긴 줄은 코드 영역을 좌우로 움직여 확인하세요.</p>
+                <pre tabindex="0" role="region" aria-label="생성된 application.yml · 좌우로 움직여 읽기"><code id="yaml-output"></code></pre>
+                <p class="yaml-builder-export-status" data-builder-export-status role="status" aria-live="polite"></p>
                 <p class="yaml-builder-help">생성 결과는 Spring Boot 설정입니다. Broker의 <code>server.properties</code>가 아니라 애플리케이션 Client 설정에 해당합니다. Topic은 <code>@KafkaListener</code>의 <code>topics</code>나 <code>KafkaTemplate</code> 호출에서 별도로 결정합니다.</p>
               </div>
             </div>
