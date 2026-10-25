@@ -7,9 +7,9 @@
   <meta name="description" content="Spring Kafka Producer·Consumer·Listener 설정을 선택해 application.yml을 생성하는 Kafka Study Notes 도구">
   <title>Spring Kafka YAML Builder | Kafka Study Notes</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./assets/styles.css?v=20261026-1">
-  <script src="./assets/app.js?v=20261026-1" defer></script>
-  <script src="./assets/yaml-builder.js?v=20261026-1" defer></script>
+  <link rel="stylesheet" href="./assets/styles.css?v=20261026-3">
+  <script src="./assets/app.js?v=20261026-3" defer></script>
+  <script src="./assets/yaml-builder.js?v=20261026-3" defer></script>
 </head>
 <body class="builder-mode">
   <a class="skip-link" href="#main-content">본문으로 이동</a>
@@ -116,23 +116,48 @@
                   </div>
                 </details>
 
-                <details class="yaml-builder-group" data-yaml-group="producer" open>
+                <details class="yaml-builder-group" id="yaml-producer-options" data-yaml-group="producer" open>
                   <summary>Producer 옵션</summary>
                   <div class="yaml-builder-grid">
-                    <label class="yaml-builder-field">
-                      <span><code>acks</code></span>
-                      <select id="yaml-producer-acks">
+                    <div class="yaml-producer-guarantees yaml-builder-field-wide">
+                      <strong>전송 보장 · 먼저 선택하세요</strong>
+                      <label class="yaml-builder-check">
+                        <input id="yaml-producer-idempotence" type="checkbox" checked aria-describedby="yaml-idempotence-lock-reason">
+                        <span>멱등성 활성화 <code>enable.idempotence</code></span>
+                      </label>
+                      <small class="yaml-option-description" id="yaml-idempotence-lock-reason" hidden>Transaction이 켜져 있어 멱등성이 필수입니다. 멱등성을 끄려면 먼저 아래의 Transaction 체크를 끄세요.</small>
+                      <label class="yaml-builder-check">
+                        <input id="yaml-producer-transaction" type="checkbox">
+                        <span>Transactional Producer 준비</span>
+                      </label>
+                      <p class="yaml-builder-option-note">멱등성을 켜면 아래 <code>acks=all</code>이 고정됩니다. Transaction을 켜면 멱등성도 필수로 켜집니다.</p>
+                      <details class="yaml-choice-details">
+                        <summary>전송 보장과 설정 조건 자세히 보기</summary>
+                        <div class="yaml-producer-guarantee-help">
+                          <p>멱등성은 Retry로 같은 Produce 요청이 재전송될 때 Producer Sequence로 Broker의 중복 기록을 줄입니다. 애플리케이션의 DB 중복 처리까지 대신하지는 않습니다.</p>
+                          <p>멱등성·Transaction은 <code>acks=all</code>, <code>retries&gt;0</code>, <code>max.in.flight≤5</code>가 필요합니다. 이 조건을 벗어나면 오류를 표시합니다.</p>
+                          <p><code>transaction-id-prefix</code>로 Transactional Producer와 Transaction Manager를 구성할 준비를 합니다. 실제 Transaction은 <code>KafkaTemplate.executeInTransaction(...)</code>, <code>@Transactional</code> 또는 Transaction이 설정된 Listener Container가 시작해야 합니다. 이 설정만으로 일반 <code>send()</code>가 자동으로 하나의 Transaction에 묶이는 것은 아니며, 외부 DB Commit도 자동으로 원자화하지 않습니다.</p>
+                        </div>
+                      </details>
+                    </div>
+                    <div class="yaml-builder-field">
+                      <div class="yaml-builder-field-title">
+                        <label for="yaml-producer-acks"><code>acks</code></label>
+                        <small class="yaml-builder-field-state" data-acks-state aria-live="polite"></small>
+                      </div>
+                      <select id="yaml-producer-acks" aria-describedby="yaml-acks-description yaml-acks-lock-reason">
                         <option value="all" selected>all · ISR 확인</option>
                         <option value="1">1 · Leader 확인</option>
                         <option value="0">0 · 응답 없음</option>
                       </select>
-                      <small class="yaml-option-description">Broker가 Produce 성공을 응답하기 전에 몇 개의 Replica 확인을 기다릴지 정합니다.</small>
+                      <small class="yaml-option-description" id="yaml-acks-description">Broker가 Produce 성공을 응답하기 전에 몇 개의 Replica 확인을 기다릴지 정합니다.</small>
+                      <small class="yaml-acks-lock-reason" id="yaml-acks-lock-reason" hidden></small>
                       <small class="yaml-builder-value-help" data-yaml-value-help="yaml-producer-acks"></small>
                       <details class="yaml-choice-details">
                         <summary>선택값별 설명</summary>
                         <div class="yaml-choice-guide" data-yaml-choice-guide="yaml-producer-acks"></div>
                       </details>
-                    </label>
+                    </div>
                     <label class="yaml-builder-field">
                       <span><code>retries</code></span>
                       <input id="yaml-producer-retries" type="number" min="0" max="2147483647" value="2147483647">
@@ -184,17 +209,6 @@
                       <input id="yaml-producer-value-serializer" type="text" value="org.apache.kafka.common.serialization.StringSerializer" autocomplete="off">
                       <small class="yaml-option-description">Record Value를 Kafka에 저장할 바이트로 바꾸는 클래스입니다. Consumer의 Value Deserializer와 한 쌍으로 맞춥니다. 선택한 메시지 형식에 따라 자동으로 채워지고, 직접 지정 모드에서는 수정할 수 있습니다.</small>
                     </label>
-                    <label class="yaml-builder-check yaml-builder-field-wide">
-                      <input id="yaml-producer-idempotence" type="checkbox" checked>
-                      <span>멱등성 활성화 <code>enable.idempotence=true</code></span>
-                    </label>
-                    <p class="yaml-builder-option-note">Retry로 같은 Produce 요청이 재전송되어도 Broker가 Producer Sequence를 사용해 중복 기록을 줄입니다. 애플리케이션의 DB 중복 처리까지 대신하지는 않습니다.</p>
-                    <p class="yaml-builder-help yaml-builder-field-wide">멱등성·Transaction을 사용하면 <code>acks=all</code>을 고정합니다. <code>retries&gt;0</code>과 <code>max.in.flight≤5</code> 조건을 벗어나면 오류를 표시합니다.</p>
-                    <label class="yaml-builder-check yaml-builder-field-wide">
-                      <input id="yaml-producer-transaction" type="checkbox">
-                      <span>Transactional Producer 준비</span>
-                    </label>
-                    <p class="yaml-builder-option-note"><code>transaction-id-prefix</code>로 Transactional Producer와 Transaction Manager를 구성할 준비를 합니다. 실제 Transaction은 <code>KafkaTemplate.executeInTransaction(...)</code>, <code>@Transactional</code> 또는 Transaction이 설정된 Listener Container가 시작해야 합니다. 이 설정만으로 일반 <code>send()</code>가 자동으로 하나의 Transaction에 묶이는 것은 아니며, 외부 DB Commit도 자동으로 원자화하지 않습니다.</p>
                     <label class="yaml-builder-field yaml-builder-field-wide">
                       <span><code>transaction-id-prefix</code></span>
                       <input id="yaml-producer-transaction-prefix" type="text" value="order-instance-1-tx-" autocomplete="off">

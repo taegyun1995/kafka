@@ -9025,6 +9025,44 @@ h3,
 .yaml-builder-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 .yaml-builder-button:disabled { opacity: 0.45; cursor: not-allowed; }
 .yaml-builder-field input[readonly] { color: var(--muted); }
+.yaml-producer-guarantees {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.yaml-producer-guarantees > strong {
+  color: var(--builder);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.yaml-producer-guarantees > small,
+.yaml-producer-guarantee-help p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.yaml-producer-guarantee-help { display: grid; gap: 10px; padding-top: 10px; }
+.yaml-builder-field-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.yaml-builder-field-title label { font-size: 12px; font-weight: 720; }
+.yaml-builder-field-state {
+  padding: 2px 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.yaml-builder-field-state.is-locked { color: var(--builder); border-color: var(--builder); }
+.yaml-builder-field .yaml-acks-lock-reason { color: var(--builder); line-height: 1.75; }
 .yaml-builder-field { grid-template-columns: minmax(0, 1fr); }
 .yaml-builder-field > *,
 .yaml-builder-check > span { min-width: 0; }

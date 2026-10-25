@@ -133,6 +133,17 @@
     const idempotence = producer && idempotenceToggle.checked;
     field("yaml-producer-acks").disabled = idempotence;
     if (idempotence) field("yaml-producer-acks").value = "all";
+    const acksState = form.querySelector("[data-acks-state]");
+    const stateText = transaction ? "Transaction으로 고정" : idempotence ? "멱등성으로 고정" : "직접 선택";
+    if (acksState.textContent !== stateText) acksState.textContent = stateText;
+    acksState.classList.toggle("is-locked", idempotence);
+    const acksReason = field("yaml-acks-lock-reason");
+    const reasonText = transaction
+      ? "Transaction을 사용해 all로 고정됩니다. 값을 바꾸려면 위의 Transaction과 멱등성 체크를 모두 끄세요."
+      : "멱등성을 사용해 all로 고정됩니다. 값을 바꾸려면 바로 위의 ‘멱등성 활성화’ 체크를 끄세요.";
+    if (acksReason.textContent !== reasonText) acksReason.textContent = reasonText;
+    acksReason.hidden = !idempotence;
+    field("yaml-idempotence-lock-reason").hidden = !transaction;
     field("yaml-producer-retries").min = idempotence ? "1" : "0";
     field("yaml-producer-max-in-flight").max = idempotence ? "5" : "2147483647";
     field("yaml-producer-transaction-prefix").disabled = !transaction;

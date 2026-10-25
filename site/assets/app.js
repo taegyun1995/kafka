@@ -11,6 +11,7 @@
   const chapterDescription = document.querySelector("[data-chapter-description]");
   const mobileNav = document.querySelector(".mobile-nav");
   const toolSwitches = Array.from(document.querySelectorAll("[data-tool-switch]"));
+  const isBuilderPage = Boolean(document.querySelector("[data-yaml-builder]"));
   const chapterMeta = {
     overview: {
       number: "00",
@@ -91,6 +92,7 @@
   }
 
   function setBuilderMode(active) {
+    active = active || isBuilderPage;
     document.body.classList.toggle("builder-mode", active);
     toolSwitches.forEach(function (link) {
       link.classList.toggle("is-active", active);
