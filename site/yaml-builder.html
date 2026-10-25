@@ -113,7 +113,7 @@
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>retries</code></span>
-                      <input id="yaml-producer-retries" type="number" min="0" value="10">
+                      <input id="yaml-producer-retries" type="number" min="0" max="2147483647" value="10">
                       <small class="yaml-option-description">일시적인 네트워크·Leader 오류 때 같은 Record 전송을 재시도하는 최대 횟수입니다. 멱등성과 함께 사용하세요.</small>
                     </label>
                     <label class="yaml-builder-field">
@@ -182,13 +182,13 @@
                     <label class="yaml-builder-field">
                       <span><code>value.deserializer</code></span>
                       <input id="yaml-consumer-value-deserializer" type="text" value="org.springframework.kafka.support.serializer.JsonDeserializer" autocomplete="off">
-                      <small class="yaml-option-description">Kafka Value 바이트를 애플리케이션 객체로 복원합니다. 신뢰 패키지·타입 매핑 등 JsonDeserializer 추가 설정이 필요할 수 있습니다.</small>
+                      <small class="yaml-option-description">Kafka Value 바이트를 애플리케이션 객체로 복원합니다. 업무 DTO에 JsonDeserializer를 쓰려면 해당 클래스가 Consumer에 존재해야 하며, 신뢰 패키지와 대상 타입 또는 Type Header 설정도 맞춰야 합니다. 이 도구는 해당 DTO 계약을 자동으로 구성하지 않습니다.</small>
                     </label>
                     <label class="yaml-builder-check yaml-builder-field-wide">
                       <input id="yaml-consumer-auto-commit" type="checkbox">
                       <span>Auto Commit 사용 <code>enable.auto.commit</code></span>
                     </label>
-                    <p class="yaml-builder-option-note">켜면 Consumer가 주기적으로 Offset을 자동 Commit합니다. 처리 완료 시점과 Commit 시점을 세밀하게 맞추려면 보통 끄고 Spring Listener의 Ack Mode를 설계합니다.</p>
+                    <p class="yaml-builder-option-note">켜면 Consumer가 주기적으로 Offset을 자동 Commit합니다. Spring Listener를 선택하면 Container의 Ack Mode를 사용하도록 이 값을 false로 고정합니다. 수동 Ack Mode와 Auto Commit은 함께 사용할 수 없습니다.</p>
                     <label class="yaml-builder-field">
                       <span><code>auto.offset.reset</code></span>
                       <select id="yaml-consumer-offset-reset">
@@ -207,9 +207,9 @@
                       <span><code>isolation.level</code></span>
                       <select id="yaml-consumer-isolation">
                         <option value="read_uncommitted" selected>read_uncommitted</option>
-                        <option value="read_committed">read_committed · Commit 결과만</option>
+                        <option value="read_committed">read_committed · Abort 결과 제외</option>
                       </select>
-                      <small class="yaml-option-description">Transaction Record의 가시성을 결정합니다. <code>read_committed</code>는 Commit된 결과만 읽게 하지만 Consumer 처리 자체를 Exactly-once로 만들지는 않습니다.</small>
+                      <small class="yaml-option-description">Transaction Record의 가시성을 결정합니다. <code>read_committed</code>는 Abort된 Transaction을 숨기고 비트랜잭션 Record도 반환합니다. 열린 Transaction의 LSO 경계 뒤는 완료 전까지 대기하며, Consumer 처리 자체를 Exactly-once로 만들지는 않습니다.</small>
                       <small class="yaml-builder-value-help" data-yaml-value-help="yaml-consumer-isolation"></small>
                       <details class="yaml-choice-details">
                         <summary>선택값별 설명</summary>
@@ -218,22 +218,22 @@
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>max.poll.records</code></span>
-                      <input id="yaml-consumer-max-poll-records" type="number" min="1" value="100">
+                      <input id="yaml-consumer-max-poll-records" type="number" min="1" max="2147483647" value="100">
                       <small class="yaml-option-description">한 번의 <code>poll()</code>이 반환할 최대 Record 수입니다. 처리 시간이 길면 줄이고, 처리량이 중요하면 늘리되 Batch 지연을 함께 봅니다.</small>
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>max.poll.interval.ms</code></span>
-                      <input id="yaml-consumer-max-poll-interval" type="number" min="1" value="300000">
+                      <input id="yaml-consumer-max-poll-interval" type="number" min="1" max="2147483647" value="300000">
                       <small class="yaml-option-description">두 번의 <code>poll()</code> 사이 허용되는 최대 간격입니다. 처리 시간이 이를 넘으면 Consumer가 Group에서 빠진 것으로 판단되어 Rebalance가 발생할 수 있습니다.</small>
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>fetch.min.bytes</code></span>
-                      <input id="yaml-consumer-fetch-min-bytes" type="number" min="0" value="1">
+                      <input id="yaml-consumer-fetch-min-bytes" type="number" min="0" max="2147483647" value="1">
                       <small class="yaml-option-description">Broker가 Fetch 응답을 만들기 위해 모으려는 최소 바이트입니다. 높이면 Batch 효율은 좋아질 수 있지만 대기 시간이 늘어납니다.</small>
                     </label>
                     <label class="yaml-builder-field">
                       <span><code>fetch.max.wait.ms</code></span>
-                      <input id="yaml-consumer-fetch-max-wait" type="number" min="0" value="500">
+                      <input id="yaml-consumer-fetch-max-wait" type="number" min="0" max="2147483647" value="500">
                       <small class="yaml-option-description">Fetch가 <code>fetch.min.bytes</code>를 채우지 못할 때 Broker가 기다리는 최대 시간입니다. Long Polling의 대기 상한입니다.</small>
                     </label>
                     <label class="yaml-builder-field yaml-builder-field-wide">
@@ -259,7 +259,7 @@
                   <div class="yaml-builder-grid">
                     <label class="yaml-builder-field">
                       <span><code>concurrency</code></span>
-                      <input id="yaml-listener-concurrency" type="number" min="1" value="1">
+                      <input id="yaml-listener-concurrency" type="number" min="1" max="2147483647" value="1">
                       <small class="yaml-option-description">Spring Listener Container가 만드는 Consumer 실행 단위 수입니다. 같은 Group에서는 최대 Partition 수만큼만 실제 병렬성이 생깁니다.</small>
                     </label>
                     <label class="yaml-builder-field">

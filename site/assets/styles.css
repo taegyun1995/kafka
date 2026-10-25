@@ -48,6 +48,9 @@ body {
   font-size: 16px;
   line-height: 1.78;
   letter-spacing: 0;
+  /* 한글은 음절이 아니라 어절 단위로 줄을 바꾼다. 칸보다 긴 어절만 예외로 끊는다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 a {
@@ -675,8 +678,18 @@ code {
   word-break: normal;
 }
 
-p {
+p,
+li,
+dd,
+td,
+th,
+figcaption {
   text-wrap: pretty;
+}
+
+/* At-least-once·KIP-848처럼 하이픈으로 이은 용어를 하이픈 뒤에서 끊지 않는다. */
+.nowrap {
+  white-space: nowrap;
 }
 
 h1,
@@ -1891,8 +1904,9 @@ strong {
   background: var(--broker-soft);
 }
 
-.note strong,
-.warning strong {
+/* 제목(aside의 직계 strong)만 블록으로 둔다. 문단 속 강조까지 블록이 되면 문장이 끊긴다. */
+.note > strong,
+.warning > strong {
   display: block;
   margin-bottom: 3px;
   font-size: 13px;
@@ -2552,7 +2566,7 @@ blockquote {
   color: var(--body);
 }
 
-.topic-fold-body > :is(.component-status, .factory-map, .type-relationship, .optional-pattern, .protocol-frame, .step-list, .table-wrap, .network-options, .option-groups, .code-block, .transaction-rules, .final-flow, .note, .warning, .source-note) {
+.topic-fold-body > :is(.stage-option-map, .component-status, .factory-map, .type-relationship, .optional-pattern, .protocol-frame, .step-list, .table-wrap, .network-options, .option-groups, .code-block, .transaction-rules, .final-flow, .note, .warning, .source-note) {
   margin-left: 0;
 }
 
@@ -3558,6 +3572,367 @@ blockquote {
 .consumer-advanced-section .section-heading > span,
 .consumer-advanced-section .section-heading p {
   color: var(--consumer);
+}
+
+.producer-advanced-section {
+  border-top: 2px solid var(--producer);
+}
+
+.producer-advanced-section .section-heading > span,
+.producer-advanced-section .section-heading p {
+  color: var(--producer);
+}
+
+/* Track 00 · Kafka 기초: 파트 시작선은 Builder 색으로 구분한다. */
+.intro-chapter {
+  border-top-color: var(--builder);
+}
+
+.intro-chapter .section-heading > span,
+.intro-chapter .section-heading p,
+.intro-section .section-heading > span,
+.intro-section .section-heading p {
+  color: var(--builder);
+}
+
+/* 섹션 난이도 표시: 초급 → 최고급을 색 네 가지로 구분한다. */
+.level-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.7;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
+.level-tag[data-level="1"] {
+  color: var(--consumer);
+}
+
+.level-tag[data-level="2"] {
+  color: var(--partition);
+}
+
+.level-tag[data-level="3"] {
+  color: var(--producer);
+}
+
+.level-tag[data-level="4"] {
+  color: var(--builder);
+}
+
+/* 머리말의 수준별 학습 경로 */
+.level-guide {
+  margin-top: 28px;
+}
+
+.level-guide > p {
+  margin: 0 0 14px;
+  color: var(--body);
+}
+
+.level-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.level-guide-grid article {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px;
+  background: var(--surface);
+}
+
+.level-guide-grid article + article {
+  border-left: 1px solid var(--line);
+}
+
+.level-guide-grid .level-tag {
+  justify-self: start;
+  margin-left: 0;
+}
+
+.level-guide-grid strong {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.level-guide-grid ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.level-guide-grid ol li:not(:last-child)::after {
+  content: "→";
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+.level-guide-grid ol a {
+  color: var(--text);
+}
+
+.level-guide-grid ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 0 0 16px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.level-guide-grid ul::before {
+  content: "스스로 점검";
+  margin-left: -16px;
+  color: var(--body);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* 00-3 Log 그림: Offset 칸과 Group별 다음 읽을 위치 */
+.log-strip {
+  margin: 24px 0 0 52px;
+  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+}
+
+.log-strip ol {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-strip li {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  text-align: center;
+}
+
+.log-strip li b {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.log-strip li span {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.log-strip li.log-reader-a {
+  border-color: var(--consumer);
+  box-shadow: inset 0 -3px 0 var(--consumer);
+}
+
+.log-strip li.log-reader-b {
+  border-color: var(--partition);
+  box-shadow: inset 0 -3px 0 var(--partition);
+}
+
+.log-strip li.log-next {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--builder);
+  color: var(--muted);
+}
+
+.log-readers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 14px;
+}
+
+.log-readers p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--body);
+  font-size: 12px;
+}
+
+.log-key {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.log-key-a {
+  background: var(--consumer);
+}
+
+.log-key-b {
+  background: var(--partition);
+}
+
+.log-key-next {
+  border: 1px dashed var(--builder);
+}
+
+/* 00-5 용어 사전 */
+.glossary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 12px 0 0 52px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.glossary > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.36fr) minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.glossary > div:nth-child(odd) {
+  border-right: 1px solid var(--line);
+}
+
+.glossary > div:nth-last-child(-n + 2):nth-child(odd),
+.glossary > div:last-child {
+  border-bottom: 0;
+}
+
+.glossary dt {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.glossary dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.glossary dd a {
+  margin-left: 4px;
+  color: var(--partition);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* 표의 ‘자세히’ 열 링크는 짧은 섹션 이름이므로 한 줄로 둔다. */
+td > a:only-child {
+  white-space: nowrap;
+}
+
+/* 옵션 지도 칩: 긴 설정 이름은 <wbr> 위치에서만 줄을 바꾼다. */
+.stage-option-map .option-chips code {
+  white-space: normal;
+}
+
+/* Producer 옵션 카탈로그의 기본값·조정 기준 */
+.option-groups dd .opt-default {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 0 6px;
+  color: var(--body);
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.option-groups dd .opt-tune {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.essential-options article p small {
+  display: block;
+  margin-top: 4px;
+  color: var(--body);
+  font-size: 11px;
+}
+
+@media (max-width: 1100px) {
+  .level-guide-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .level-guide-grid article:nth-child(3) {
+    border-left: 0;
+  }
+
+  .level-guide-grid article:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 980px) {
+  .glossary {
+    grid-template-columns: 1fr;
+  }
+
+  .glossary > div:nth-child(odd) {
+    border-right: 0;
+  }
+
+  .glossary > div:nth-last-child(-n + 2):nth-child(odd) {
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 760px) {
+  .level-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .level-guide-grid article + article {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .glossary,
+  .log-strip {
+    margin-left: 0;
+  }
+
+  .log-strip ol {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .yaml-builder-section {
@@ -6921,6 +7296,59 @@ body.builder-mode .yaml-builder-output {
   }
 }
 
+/* 761~980px는 사이드바가 남아 본문이 488~700px로 좁다. 4칸 흐름은 KRaft 흐름처럼 2×2로 접는다. */
+@media (min-width: 761px) and (max-width: 980px) {
+  .bootstrap-flow,
+  .consumer-path,
+  .consumer-failure-pipeline,
+  .size-limit-chain,
+  .idempotence-flow,
+  .buffer-path {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .bootstrap-flow > b,
+  .consumer-path > b,
+  .consumer-failure-pipeline > b,
+  .size-limit-chain > b,
+  .idempotence-flow > b,
+  .buffer-path > b {
+    display: none;
+  }
+
+  /* 긴 식별자가 든 3~4칸 카드는 칸이 좁아지면 오른쪽 끝이 잘린다. 모바일처럼 한 줄에 하나씩 쌓는다. */
+  .component-status,
+  .send-modes,
+  .transaction-rules,
+  .deep-dive-scope,
+  .zookeeper-option-grid,
+  .kraft-quorum-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .component-status article + article,
+  .send-modes article + article,
+  .transaction-rules article + article,
+  .deep-dive-scope article + article,
+  .zookeeper-option-grid article + article,
+  .kraft-quorum-cards article + article {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .cluster-map {
+    grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr);
+  }
+
+  .cluster-map .metadata-node {
+    grid-column: 1 / -1;
+  }
+
+  .cluster-map .replica-stack {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 760px) {
   .chapter-divider {
     padding-top: 58px;
@@ -7438,7 +7866,12 @@ body.builder-mode .yaml-builder-output {
   }
 
   .stage-option-map article {
-    grid-template-columns: 32px minmax(160px, 0.7fr) minmax(250px, 1.3fr);
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: 8px 14px;
+  }
+
+  .stage-option-map .option-chips {
+    grid-column: 2;
   }
 
   .boundary-legend.five-boundaries {
@@ -8316,6 +8749,123 @@ h3,
 
   .diagram-wide img {
     min-width: 0;
+  }
+}
+
+/* 기존 문서 스타일 안에서 읽는 길이와 정보의 우선순위를 조정한다. */
+.readable-notes .content-section > p:not(.source-note),
+.readable-notes .content-section > h3 {
+  max-inline-size: 46em;
+}
+
+.readable-notes .content-section > .section-keypoint {
+  margin-top: 0;
+  margin-bottom: 26px;
+  padding: 3px 0 3px 16px;
+  border-left: 2px solid var(--producer);
+  color: var(--text);
+  line-height: 1.8;
+  font-weight: 600;
+}
+
+.section-keypoint > span {
+  display: inline-block;
+  margin-right: 9px;
+  color: var(--producer);
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: 1px;
+}
+
+.readable-notes :is(.note, .warning) p + p {
+  margin-top: 12px;
+}
+
+.level-route > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  color: var(--body);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+
+.level-route > summary::-webkit-details-marker {
+  display: none;
+}
+
+.level-route > summary > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.level-route > summary::after {
+  content: "+";
+  margin-left: auto;
+  color: var(--producer);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.level-route[open] > summary::after {
+  content: "−";
+}
+
+.level-route > summary:hover {
+  color: var(--producer);
+}
+
+.level-route > summary:focus-visible {
+  outline: 2px solid var(--producer);
+  outline-offset: 3px;
+}
+
+.level-route-body {
+  display: grid;
+  gap: 14px;
+  padding-top: 9px;
+}
+
+.readable-notes .level-guide-grid {
+  align-items: start;
+  background: var(--surface);
+}
+
+@media (max-width: 760px) {
+  .readable-notes .content-section > .section-keypoint {
+    padding-left: 12px;
+    margin-bottom: 23px;
+  }
+
+  .section-keypoint > span {
+    font-size: 10px;
+  }
+
+  .level-route > summary {
+    padding-block: 10px;
+    font-size: 13px;
+  }
+
+  .readable-notes .table-wrap table:has(th:nth-child(3)) {
+    min-width: 620px;
+  }
+
+  .readable-notes .table-wrap:has(th:nth-child(3))::before {
+    content: "← 표를 좌우로 움직여 읽을 수 있어요 →";
+    position: sticky;
+    left: 0;
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    color: var(--muted);
+    background: var(--surface);
+    font-size: 10px;
   }
 }
 

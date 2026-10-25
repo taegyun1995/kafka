@@ -14,8 +14,8 @@
   const chapterMeta = {
     overview: {
       number: "00",
-      title: "Kafka 전체 그림",
-      description: "Data Plane과 Kafka Cluster의 포함 관계부터 시작"
+      title: "Kafka 기초",
+      description: "왜 Kafka인가 · Event · Log 모델 · 용어 사전"
     },
     "data-plane": {
       number: "01",
@@ -35,14 +35,10 @@
   };
 
   function chapterForSection(id) {
-    if (!id || id === "top") return "overview";
+    if (!id || id === "top" || id.indexOf("intro-") === 0) return "overview";
 
-    if (["role", "consumer-spring"].includes(id)) {
+    if (id.indexOf("spring-") === 0) {
       return "spring";
-    }
-
-    if (id === "broker-produce") {
-      return "data-plane";
     }
 
     if (id.indexOf("broker-") === 0 || id.indexOf("cluster-") === 0 || id.indexOf("control-plane-") === 0 || id.indexOf("kraft-") === 0 || id.indexOf("zookeeper-") === 0) {
@@ -210,8 +206,14 @@
     ]);
     const scalar = function (input) { return JSON.stringify(String(input)); };
     const numberValue = function (id, fallback) {
-      const parsed = Number(field(id).value);
-      return Number.isFinite(parsed) && parsed >= 0 ? String(parsed) : String(fallback);
+      const input = field(id);
+      const raw = input.value.trim();
+      const parsed = Number(raw);
+      const minimum = Number(input.min || "0");
+      const maximum = input.max ? Number(input.max) : Number.MAX_SAFE_INTEGER;
+      return raw !== "" && Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum
+        ? String(parsed)
+        : String(fallback);
     };
     const envScalar = function (name, fallback, enabled) {
       return scalar(enabled ? "${" + name + ":" + fallback + "}" : fallback);
@@ -221,7 +223,7 @@
       "yaml-producer-acks": {
         all: "권장 기본값입니다. Leader가 모든 ISR의 확인을 받을 때까지 성공으로 응답해 내구성을 높입니다.",
         "1": "Leader Broker의 로컬 기록만 확인합니다. 지연은 낮지만 Leader 장애와 복제 지연 상황의 내구성이 낮아질 수 있습니다.",
-        "0": "응답을 기다리지 않습니다. 가장 빠르지만 Broker가 Record를 받았는지 Producer가 확인할 수 없어 유실 위험이 큽니다."
+        "0": "Broker 응답을 기다리지 않아 확인에 드는 대기를 줄입니다. Broker가 Record를 받았는지 Producer가 확인할 수 없어 유실 위험이 큽니다."
       },
       "yaml-producer-compression": {
         none: "압축하지 않습니다. CPU 부담은 가장 낮지만 네트워크·디스크 사용량이 커집니다.",
@@ -237,7 +239,7 @@
       },
       "yaml-consumer-isolation": {
         read_uncommitted: "아직 완료되지 않았거나 Abort된 Transaction Record도 볼 수 있습니다. 일반 비트랜잭션 소비에 사용합니다.",
-        read_committed: "Commit된 Transaction Record만 읽습니다. Transaction 결과의 가시성 설정이며 Consumer 처리 자체를 Exactly-once로 만들지는 않습니다."
+        read_committed: "Commit된 Transaction Record와 비트랜잭션 Record를 읽습니다. 열린 Transaction 뒤의 Record는 LSO 경계 때문에 함께 대기할 수 있으며, Consumer 처리 자체를 Exactly-once로 만들지는 않습니다."
       },
       "yaml-consumer-assignment": {
         "org.apache.kafka.clients.consumer.CooperativeStickyAssignor": "기존 할당을 최대한 유지하면서 점진적으로 이동합니다. Rebalance 중 중단 범위를 줄이기 위한 권장 시작점입니다.",
@@ -248,7 +250,7 @@
       "yaml-listener-ack-mode": {
         record: "각 Record 처리가 끝난 뒤 해당 위치를 Commit하는 기본적인 단위입니다. 실패 시 처리 완료된 Record 이후부터 재개하기 쉽습니다.",
         batch: "한 번의 poll()에서 받은 Batch 처리가 끝난 뒤 Commit합니다. Batch 내 하나가 실패하면 더 넓은 범위가 재처리될 수 있습니다.",
-        manual: "Listener 코드가 Acknowledgment를 호출해야 Commit합니다. 비즈니스 처리 완료 시점을 직접 통제할 때 사용합니다.",
+        manual: "Listener 코드에서 Acknowledgment.acknowledge()를 호출한 뒤, poll() Batch 처리 경계에서 Commit합니다. Ack 호출 즉시 Commit하는 방식은 아닙니다.",
         manual_immediate: "Listener가 Consumer Thread에서 Ack를 호출하는 즉시 Commit을 시도합니다. 호출 위치와 Thread에 따라 동작 차이가 있습니다."
       }
     };
@@ -300,6 +302,10 @@
       consumerScopeToggle.disabled = includeListener;
       consumerScopeToggle.checked = includeListener || consumerScopeToggle.checked;
       const includeConsumer = consumerScopeToggle.checked || includeListener;
+      const autoCommitToggle = field("yaml-consumer-auto-commit");
+      // AckMode belongs to the container; manual AckMode rejects auto commit.
+      autoCommitToggle.disabled = includeListener;
+      if (includeListener) autoCommitToggle.checked = false;
       const transactionEnabled = isChecked("yaml-producer-transaction");
       const idempotence = transactionEnabled || isChecked("yaml-producer-idempotence");
       const producerAcks = field("yaml-producer-acks");
